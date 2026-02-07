@@ -7,10 +7,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
+  if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -22,18 +19,17 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing mensualidad" });
     }
 
-    if (modo === "setup" && (!setup || setup <= 0)) {
-      return res.status(400).json({ error: "Missing or invalid setup" });
+    if (modo === "setup" && !setup) {
+      return res.status(400).json({ error: "Missing setup" });
     }
 
     const now = Math.floor(Date.now() / 1000);
     const nextMonth = now + 30 * 24 * 60 * 60;
 
-    const lineItems = [];
+    const line_items = [];
 
-    // 🔹 SETUP: pago único
     if (modo === "setup") {
-      lineItems.push({
+      line_items.push({
         price_data: {
           currency: "eur",
           product_data: { name: "Setup inicial" },
@@ -43,8 +39,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🔹 MENSUALIDAD: suscripción
-    lineItems.push({
+    line_items.push({
       price_data: {
         currency: "eur",
         product_data: { name: "Servicio mensual" },
@@ -57,7 +52,7 @@ export default async function handler(req, res) {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
-      line_items: lineItems,
+      line_items,
       subscription_data:
         modo === "setup"
           ? {
