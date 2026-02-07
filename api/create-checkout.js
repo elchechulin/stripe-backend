@@ -7,42 +7,28 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  let body = "";
-
   try {
-    for await (const chunk of req) {
-      body += chunk;
+    const { modo, mensualidad, setup } = req.body;
+
+    if (!mensualidad) {
+      return res.status(400).json({ error: "Missing mensualidad" });
     }
-    body = JSON.parse(body);
-  } catch (err) {
-    return res.status(400).json({ error: "Invalid JSON body" });
-  }
 
-  const { modo, mensualidad, setup } = body;
+    const lineItems = [];
 
-  if (!mensualidad || mensualidad <= 0) {
-    return res.status(400).json({ error: "Mensualidad inválida" });
-  }
-
-  try {
-    const lineItems = [
-      {
-        price_data: {
-          currency: "eur",
-          product_data: {
-            name:
-              modo === "setup"
-                ? "Servicio mensual + setup"
-                : "Servicio mensual",
-          },
-          unit_amount: mensualidad * 100,
-          recurring: { interval: "month" },
+    lineItems.push({
+      price_data: {
+        currency: "eur",
+        product_data: {
+          name: "Servicio mensual",
         },
-        quantity: 1,
+        unit_amount: mensualidad * 100, // 🔴 EN CÉNTIMOS
+        recurring: { interval: "month" },
       },
-    ];
+      quantity: 1,
+    });
 
-    if (modo === "setup" && setup > 0) {
+    if (modo === "setup" && setup) {
       lineItems.push({
         price_data: {
           currency: "eur",
@@ -59,13 +45,13 @@ export default async function handler(req, res) {
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: lineItems,
-      success_url: "https://pricing-restaurantes.vercel.app/pago-inmediato.html",
-      cancel_url: "https://pricing-restaurantes.vercel.app/",
+      success_url: "https://pricing-restaurantes.vercel.app/?success=1",
+      cancel_url: "https://pricing-restaurantes.vercel.app/?cancel=1",
     });
 
-    res.status(200).json({ url: session.url });
+    return res.status(200).json({ url: session.url });
   } catch (err) {
-    console.error("Stripe error:", err);
-    res.status(500).json({ error: "Stripe error" });
+    console.error("STRIPE ERROR:", err);
+    return res.status(500).json({ error: err.message });
   }
 }
