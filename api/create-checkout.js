@@ -3,6 +3,16 @@ import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
+  // 🔹 CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // 🔹 Preflight request
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -14,30 +24,26 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing mensualidad" });
     }
 
-    const lineItems = [];
-
-    lineItems.push({
-      price_data: {
-        currency: "eur",
-        product_data: {
-          name: "Servicio mensual",
+    const lineItems = [
+      {
+        price_data: {
+          currency: "eur",
+          product_data: { name: "Servicio mensual" },
+          unit_amount: mensualidad * 100,
+          recurring: { interval: "month" }
         },
-        unit_amount: mensualidad * 100, // 🔴 EN CÉNTIMOS
-        recurring: { interval: "month" },
-      },
-      quantity: 1,
-    });
+        quantity: 1
+      }
+    ];
 
     if (modo === "setup" && setup) {
       lineItems.push({
         price_data: {
           currency: "eur",
-          product_data: {
-            name: "Setup inicial",
-          },
-          unit_amount: setup * 100,
+          product_data: { name: "Setup inicial" },
+          unit_amount: setup * 100
         },
-        quantity: 1,
+        quantity: 1
       });
     }
 
@@ -46,10 +52,11 @@ export default async function handler(req, res) {
       payment_method_types: ["card"],
       line_items: lineItems,
       success_url: "https://pricing-restaurantes.vercel.app/?success=1",
-      cancel_url: "https://pricing-restaurantes.vercel.app/?cancel=1",
+      cancel_url: "https://pricing-restaurantes.vercel.app/?cancel=1"
     });
 
     return res.status(200).json({ url: session.url });
+
   } catch (err) {
     console.error("STRIPE ERROR:", err);
     return res.status(500).json({ error: err.message });
