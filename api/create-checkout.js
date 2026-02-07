@@ -19,6 +19,13 @@ export default async function handler(req, res) {
 
   try {
     const { modo, mensualidad, setup } = req.body;
+    
+    // 🔒 Validación obligatoria para modo setup
+if (modo === "setup" && !setup) {
+  return res.status(400).json({
+    error: "Missing setup amount for setup mode"
+  });
+}
 
     if (!mensualidad) {
       return res.status(400).json({ error: "Missing mensualidad" });
