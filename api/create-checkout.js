@@ -7,59 +7,65 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  let body = "";
+
   try {
-    const { modo, mensualidad, setup } = req.body;
-
-    if (!modo || !mensualidad) {
-      return res.status(400).json({ error: "Datos incompletos" });
+    for await (const chunk of req) {
+      body += chunk;
     }
+    body = JSON.parse(body);
+  } catch (err) {
+    return res.status(400).json({ error: "Invalid JSON body" });
+  }
 
-    const line_items = [];
+  const { modo, mensualidad, setup } = body;
 
-    if (modo === "inmediato") {
-      line_items.push({
+  if (!mensualidad || mensualidad <= 0) {
+    return res.status(400).json({ error: "Mensualidad inválida" });
+  }
+
+  try {
+    const lineItems = [
+      {
         price_data: {
           currency: "eur",
-          product_data: { name: "Servicio mensual" },
+          product_data: {
+            name:
+              modo === "setup"
+                ? "Servicio mensual + setup"
+                : "Servicio mensual",
+          },
           unit_amount: mensualidad * 100,
-          recurring: { interval: "month" }
+          recurring: { interval: "month" },
         },
-        quantity: 1
-      });
-    }
+        quantity: 1,
+      },
+    ];
 
-    if (modo === "setup") {
-      line_items.push({
+    if (modo === "setup" && setup > 0) {
+      lineItems.push({
         price_data: {
           currency: "eur",
-          product_data: { name: "Setup inicial" },
-          unit_amount: setup * 100
+          product_data: {
+            name: "Setup inicial",
+          },
+          unit_amount: setup * 100,
         },
-        quantity: 1
-      });
-
-      line_items.push({
-        price_data: {
-          currency: "eur",
-          product_data: { name: "Servicio mensual" },
-          unit_amount: mensualidad * 100,
-          recurring: { interval: "month" }
-        },
-        quantity: 1
+        quantity: 1,
       });
     }
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      line_items,
-      success_url: "https://pricing-restaurantes.vercel.app/?success=1",
-      cancel_url: "https://pricing-restaurantes.vercel.app/?cancel=1"
+      payment_method_types: ["card"],
+      line_items: lineItems,
+      success_url: "https://pricing-restaurantes.vercel.app/pago-inmediato.html",
+      cancel_url: "https://pricing-restaurantes.vercel.app/",
     });
 
-    return res.status(200).json({ url: session.url });
-
+    res.status(200).json({ url: session.url });
   } catch (err) {
-    console.error("STRIPE ERROR:", err);
-    return res.status(500).json({ error: err.message });
+    console.error("Stripe error:", err);
+    res.status(500).json({ error: "Stripe error" });
   }
 }
