@@ -28,6 +28,7 @@ export default async function handler(req, res) {
 
     const line_items = [];
 
+    // 🔹 SETUP: PAGO ÚNICO
     if (modo === "setup") {
       line_items.push({
         price_data: {
@@ -39,6 +40,7 @@ export default async function handler(req, res) {
       });
     }
 
+    // 🔹 MENSUALIDAD: SUSCRIPCIÓN
     line_items.push({
       price_data: {
         currency: "eur",
