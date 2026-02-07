@@ -8,9 +8,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const { modo, mensualidad, setup } = req.body;
@@ -20,7 +18,7 @@ export default async function handler(req, res) {
     }
 
     if (modo === "setup" && !setup) {
-      return res.status(400).json({ error: "Missing setup" });
+      return res.status(400).json({ error: "Missing setup amount" });
     }
 
     const now = Math.floor(Date.now() / 1000);
@@ -28,7 +26,7 @@ export default async function handler(req, res) {
 
     const line_items = [];
 
-    // 🔹 SETUP: PAGO ÚNICO
+    // SETUP (se cobra hoy)
     if (modo === "setup") {
       line_items.push({
         price_data: {
@@ -40,7 +38,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🔹 MENSUALIDAD: SUSCRIPCIÓN
+    // MENSUALIDAD (suscripción)
     line_items.push({
       price_data: {
         currency: "eur",
@@ -57,10 +55,7 @@ export default async function handler(req, res) {
       line_items,
       subscription_data:
         modo === "setup"
-          ? {
-              billing_cycle_anchor: nextMonth,
-              proration_behavior: "none"
-            }
+          ? { trial_end: nextMonth }
           : undefined,
       success_url: "https://pricing-restaurantes.vercel.app/?success=1",
       cancel_url: "https://pricing-restaurantes.vercel.app/?cancel=1"
