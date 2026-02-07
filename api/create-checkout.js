@@ -8,34 +8,58 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { amount, description } = req.body;
+    const { modo, mensualidad, setup } = req.body;
 
-    if (!amount || amount < 1) {
-      return res.status(400).json({ error: "Invalid amount" });
+    if (!modo || !mensualidad) {
+      return res.status(400).json({ error: "Datos incompletos" });
+    }
+
+    const line_items = [];
+
+    if (modo === "inmediato") {
+      line_items.push({
+        price_data: {
+          currency: "eur",
+          product_data: { name: "Servicio mensual" },
+          unit_amount: mensualidad * 100,
+          recurring: { interval: "month" }
+        },
+        quantity: 1
+      });
+    }
+
+    if (modo === "setup") {
+      line_items.push({
+        price_data: {
+          currency: "eur",
+          product_data: { name: "Setup inicial" },
+          unit_amount: setup * 100
+        },
+        quantity: 1
+      });
+
+      line_items.push({
+        price_data: {
+          currency: "eur",
+          product_data: { name: "Servicio mensual" },
+          unit_amount: mensualidad * 100,
+          recurring: { interval: "month" }
+        },
+        quantity: 1
+      });
     }
 
     const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "eur",
-            product_data: {
-              name: description || "Servicio Restaurant Marketing",
-            },
-            unit_amount: Math.round(amount * 100), // euros → céntimos
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: "https://www.mesasllenas.com/pago-exito.html",
-      cancel_url: "https://www.mesasllenas.com/pago-cancelado.html",
+      mode: "subscription",
+      line_items,
+      success_url: "https://pricing-restaurantes.vercel.app/?success=1",
+      cancel_url: "https://pricing-restaurantes.vercel.app/?cancel=1"
     });
 
     return res.status(200).json({ url: session.url });
+
   } catch (err) {
-    console.error("Stripe error:", err);
-    return res.status(500).json({ error: "Stripe session failed" });
+    console.error("STRIPE ERROR:", err);
+    return res.status(500).json({ error: err.message });
   }
 }
