@@ -1,4 +1,6 @@
-import { getPaymentToken } from "../lib/paymentTokens.js";
+import crypto from "crypto";
+
+const SECRET = process.env.PAYMENT_TOKEN_SECRET;
 
 export default function handler(req, res) {
   const { token } = req.query;
@@ -7,14 +9,27 @@ export default function handler(req, res) {
     return res.status(400).json({ error: "Missing token" });
   }
 
-  const data = getPaymentToken(token);
+  const [payloadB64, signature] = token.split(".");
 
-  if (!data) {
-    return res.status(410).json({ error: "Token expired or invalid" });
+  const expectedSignature = crypto
+    .createHmac("sha256", SECRET)
+    .update(payloadB64)
+    .digest("hex");
+
+  if (signature !== expectedSignature) {
+    return res.status(403).json({ error: "Invalid token" });
+  }
+
+  const payload = JSON.parse(
+    Buffer.from(payloadB64, "base64url").toString()
+  );
+
+  if (Date.now() > payload.exp) {
+    return res.status(410).json({ error: "Token expired" });
   }
 
   return res.status(200).json({
-    mensualidad: data.mensualidad,
-    setup: data.setup
+    mensualidad: payload.mensualidad,
+    setup: payload.setup
   });
 }
