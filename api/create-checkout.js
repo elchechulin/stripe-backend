@@ -61,16 +61,6 @@ export default async function handler(req, res) {
 
     const line_items = [];
 
-    if (modo === "setup") {
-      line_items.push({
-        price_data: {
-          currency: "eur",
-          product_data: { name: "Setup inicial" },
-          unit_amount: setup * 100
-        },
-        quantity: 1
-      });
-    }
 
     line_items.push({
       price_data: {
@@ -86,8 +76,22 @@ export default async function handler(req, res) {
       mode: "subscription",
       payment_method_types: ["card"],
       line_items,
-      subscription_data:
-        modo === "setup" ? { trial_end: nextMonth } : undefined,
+      subscription_data: {
+  ...(modo === "setup"
+    ? {
+        add_invoice_items: [
+          {
+            price_data: {
+              currency: "eur",
+              product_data: { name: "Setup inicial" },
+              unit_amount: setup * 100
+            },
+            quantity: 1
+          }
+        ]
+      }
+    : {})
+},
       success_url: "https://pricing-restaurantes.vercel.app/?success=1",
       cancel_url: "https://pricing-restaurantes.vercel.app/?cancel=1"
     });
