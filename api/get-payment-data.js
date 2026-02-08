@@ -2,6 +2,13 @@ import crypto from "crypto";
 
 const SECRET = process.env.PAYMENT_TOKEN_SECRET;
 
+if (!SECRET) {
+  console.error("❌ PAYMENT_TOKEN_SECRET is missing");
+  return res.status(500).json({
+    error: "Server misconfiguration: missing PAYMENT_TOKEN_SECRET"
+  });
+}
+
 export default function handler(req, res) {
   const { token } = req.query;
 
