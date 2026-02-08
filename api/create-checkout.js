@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import crypto from "crypto";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -8,17 +9,51 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const SECRET = process.env.PAYMENT_TOKEN_SECRET;
+
+  if (!SECRET) {
+    console.error("❌ PAYMENT_TOKEN_SECRET missing");
+    return res.status(500).json({ error: "Server misconfiguration" });
+  }
 
   try {
-    const { modo, mensualidad, setup } = req.body;
+    const { modo, token } = req.body;
 
-    if (!mensualidad) {
-      return res.status(400).json({ error: "Missing mensualidad" });
+    if (!token) {
+      return res.status(400).json({ error: "Missing token" });
     }
 
-    if (modo === "setup" && !setup) {
-      return res.status(400).json({ error: "Missing setup amount" });
+    const [payloadB64, signature] = token.split(".");
+
+    const expectedSignature = crypto
+      .createHmac("sha256", SECRET)
+      .update(payloadB64)
+      .digest("hex");
+
+    if (signature !== expectedSignature) {
+      return res.status(403).json({ error: "Invalid token" });
+    }
+
+    const payload = JSON.parse(
+      Buffer.from(payloadB64, "base64url").toString()
+    );
+
+    if (Date.now() > payload.exp) {
+      return res.status(410).json({ error: "Token expired" });
+    }
+
+    const { mensualidad, setup } = payload;
+
+    if (
+      typeof mensualidad !== "number" ||
+      mensualidad <= 0 ||
+      (modo === "setup" && (typeof setup !== "number" || setup <= 0))
+    ) {
+      return res.status(400).json({ error: "Invalid payment data" });
     }
 
     const now = Math.floor(Date.now() / 1000);
@@ -26,7 +61,6 @@ export default async function handler(req, res) {
 
     const line_items = [];
 
-    // SETUP (se cobra hoy)
     if (modo === "setup") {
       line_items.push({
         price_data: {
@@ -38,7 +72,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // MENSUALIDAD (suscripción)
     line_items.push({
       price_data: {
         currency: "eur",
@@ -54,9 +87,7 @@ export default async function handler(req, res) {
       payment_method_types: ["card"],
       line_items,
       subscription_data:
-        modo === "setup"
-          ? { trial_end: nextMonth }
-          : undefined,
+        modo === "setup" ? { trial_end: nextMonth } : undefined,
       success_url: "https://pricing-restaurantes.vercel.app/?success=1",
       cancel_url: "https://pricing-restaurantes.vercel.app/?cancel=1"
     });
