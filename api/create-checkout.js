@@ -14,7 +14,6 @@ export default async function handler(req, res) {
   }
 
   const SECRET = process.env.PAYMENT_TOKEN_SECRET;
-
   if (!SECRET) {
     console.error("❌ PAYMENT_TOKEN_SECRET missing");
     return res.status(500).json({ error: "Server misconfiguration" });
@@ -27,8 +26,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing token" });
     }
 
+    // 🔐 Validar token
     const [payloadB64, signature] = token.split(".");
-
     const expectedSignature = crypto
       .createHmac("sha256", SECRET)
       .update(payloadB64)
@@ -56,12 +55,26 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid payment data" });
     }
 
+    // ⏱️ Próximo cobro en 30 días
     const now = Math.floor(Date.now() / 1000);
     const nextMonth = now + 30 * 24 * 60 * 60;
 
+    // 🧾 LINE ITEMS
     const line_items = [];
 
+    // SETUP → se cobra hoy
+    if (modo === "setup") {
+      line_items.push({
+        price_data: {
+          currency: "eur",
+          product_data: { name: "Setup inicial" },
+          unit_amount: setup * 100
+        },
+        quantity: 1
+      });
+    }
 
+    // MENSUALIDAD → suscripción
     line_items.push({
       price_data: {
         currency: "eur",
@@ -72,26 +85,15 @@ export default async function handler(req, res) {
       quantity: 1
     });
 
+    // 🟢 CREAR CHECKOUT
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
       line_items,
-      subscription_data: {
-  ...(modo === "setup"
-    ? {
-        add_invoice_items: [
-          {
-            price_data: {
-              currency: "eur",
-              product_data: { name: "Setup inicial" },
-              unit_amount: setup * 100
-            },
-            quantity: 1
-          }
-        ]
-      }
-    : {})
-},
+      subscription_data:
+        modo === "setup"
+          ? { trial_end: nextMonth }
+          : undefined,
       success_url: "https://pricing-restaurantes.vercel.app/?success=1",
       cancel_url: "https://pricing-restaurantes.vercel.app/?cancel=1"
     });
