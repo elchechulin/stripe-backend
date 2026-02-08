@@ -1,36 +1,48 @@
-import crypto from "crypto";
+// api/create-payment-link.js
 
-// almacenamiento temporal en memoria
-// (válido para Vercel mientras no escale)
-const links = global.paymentLinks || {};
-global.paymentLinks = links;
+import { createPaymentToken } from "../lib/paymentTokens.js";
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { modo, mensualidad, setup } = req.body;
+  try {
+    const { modo, mensualidad, setup } = req.body;
 
-  if (!modo || !mensualidad) {
-    return res.status(400).json({ error: "Missing data" });
+    if (!mensualidad || typeof mensualidad !== "number") {
+      return res.status(400).json({ error: "Mensualidad inválida" });
+    }
+
+    if (modo === "setup" && (!setup || typeof setup !== "number")) {
+      return res.status(400).json({ error: "Setup inválido" });
+    }
+
+    // Crear token temporal (1h)
+    const token = createPaymentToken({
+      mensualidad,
+      setup: modo === "setup" ? setup : null
+    });
+
+    // Enlace final que se enviará al cliente
+    const baseUrl = "https://pricing-restaurantes.vercel.app";
+    const redirect =
+      modo === "setup"
+        ? `${baseUrl}/pago-setup.html?token=${token}`
+        : `${baseUrl}/pago-inmediato.html?token=${token}`;
+
+    return res.status(200).json({
+      url: redirect,
+      expiresIn: 3600
+    });
+
+  } catch (err) {
+    console.error("CREATE PAYMENT LINK ERROR:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
-
-  if (modo === "setup" && !setup) {
-    return res.status(400).json({ error: "Missing setup" });
-  }
-
-  const token = crypto.randomBytes(16).toString("hex");
-  const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hora
-
-  links[token] = {
-    modo,
-    mensualidad,
-    setup: setup || null,
-    expiresAt
-  };
-
-  const url = `${req.headers.origin}/pago-${modo}.html?token=${token}`;
-
-  return res.status(200).json({ url });
 }
