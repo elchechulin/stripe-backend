@@ -5,9 +5,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { mensualidad, setup, modo } = req.body;
+  const { mensualidad, setup = 0, modo = "inmediato" } = req.body;
 
-  if (!mensualidad || mensualidad <= 0) {
+  if (typeof mensualidad !== "number" || mensualidad <= 0) {
     return res.status(400).json({ error: "Datos inválidos" });
   }
 
