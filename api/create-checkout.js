@@ -94,8 +94,8 @@ export default async function handler(req, res) {
         modo === "setup"
           ? { trial_end: nextMonth }
           : undefined,
-      success_url: "https://pricing-restaurantes.vercel.app/?success=1",
-      cancel_url: "https://pricing-restaurantes.vercel.app/?cancel=1"
+      success_url: "https://mesasllenas.com/gracias.html",
+cancel_url: "https://mesasllenas.com/pago-cancelado.html"
     });
 
     return res.status(200).json({ url: session.url });
