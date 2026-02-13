@@ -13,18 +13,23 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { mensualidad, setup = 0, modo = "inmediato" } = req.body;
+  const { mensualidad, setup = 0, modo = "inmediato", closer_id } = req.body;
 
-  if (typeof mensualidad !== "number" || mensualidad <= 0) {
-    return res.status(400).json({ error: "Datos inválidos" });
-  }
+if (!closer_id) {
+  return res.status(400).json({ error: "Missing closer_id" });
+}
 
-  const payload = {
-    mensualidad,
-    setup,
-    modo,
-    exp: Date.now() + 15 * 60 * 1000
-  };
+if (typeof mensualidad !== "number" || mensualidad <= 0) {
+  return res.status(400).json({ error: "Datos inválidos" });
+}
+
+const payload = {
+  mensualidad,
+  setup,
+  modo,
+  closer_id,
+  exp: Date.now() + 15 * 60 * 1000
+};
 
   const payloadB64 = Buffer
     .from(JSON.stringify(payload))
