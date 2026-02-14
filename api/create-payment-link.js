@@ -24,15 +24,22 @@ export default async function handler(req, res) {
 
   try {
 
-    const { mensualidad, setup = 0, modo = "inmediato", closer_id } = req.body;
+    const body = typeof req.body === "string"
+  ? JSON.parse(req.body)
+  : req.body;
 
-    if (!closer_id) {
-      return res.status(400).json({ error: "Missing closer_id" });
-    }
+const mensualidad = Number(body?.mensualidad);
+const setup = Number(body?.setup || 0);
+const modo = body?.modo || "inmediato";
+const closer_id = Number(body?.closer_id);
 
-    if (typeof mensualidad !== "number" || mensualidad <= 0) {
-      return res.status(400).json({ error: "Datos inválidos" });
-    }
+    if (!closer_id || isNaN(closer_id)) {
+  return res.status(400).json({ error: "Missing closer_id" });
+}
+
+    if (!mensualidad || isNaN(mensualidad) || mensualidad <= 0) {
+  return res.status(400).json({ error: "Datos inválidos" });
+}
 
     // ==============================
     // 1️⃣ REGISTRAR VENTA EN BD
