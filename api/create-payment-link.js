@@ -1,3 +1,7 @@
+export const config = {
+  runtime: "nodejs"
+};
+
 import crypto from "crypto";
 import { Pool } from "pg";
 
