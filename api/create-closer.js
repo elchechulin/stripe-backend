@@ -5,7 +5,21 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// 🔹 Generador de contraseña segura
+/* ======================================================
+   🔹 UTILIDADES
+====================================================== */
+
+// Quitar acentos y caracteres especiales
+function limpiarTexto(texto) {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // elimina acentos
+    .replace(/ñ/g, "n")
+    .replace(/[^a-zA-Z0-9\s]/g, "") // elimina símbolos raros
+    .trim();
+}
+
+// Generador de password segura
 function generarPassword(longitud = 10) {
   const chars =
     "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
@@ -16,19 +30,18 @@ function generarPassword(longitud = 10) {
   return pass;
 }
 
-// 🔹 Generador base de username
+// Generador base de username profesional
 function generarUsernameBase(nombre, municipio) {
-  if (nombre && municipio) {
-    return (
-      nombre.split(" ")[0].toLowerCase() +
-      "_" +
-      municipio.toLowerCase().replace(/\s+/g, "")
-    );
-  }
-  return "closer";
+  const nombreLimpio = limpiarTexto(nombre);
+  const municipioLimpio = limpiarTexto(municipio);
+
+  const nombreBase = nombreLimpio.split(" ")[0].toLowerCase();
+  const ciudadBase = municipioLimpio.toLowerCase().replace(/\s+/g, "");
+
+  return `${nombreBase}_${ciudadBase}`;
 }
 
-// 🔹 Garantizar username único
+// Garantizar username único absoluto
 async function generarUsernameUnico(base) {
   let username = base;
   let contador = 1;
@@ -48,6 +61,10 @@ async function generarUsernameUnico(base) {
   return username;
 }
 
+/* ======================================================
+   🔹 HANDLER
+====================================================== */
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -62,22 +79,60 @@ export default async function handler(req, res) {
   try {
     const { full_name, city, phone } = req.body;
 
-    // 🔹 Base username
+    /* ==========================
+       VALIDACIÓN PROFESIONAL
+    ========================== */
+
+    if (!full_name || !city) {
+      return res.status(400).json({
+        error: "Nombre completo y municipio son obligatorios"
+      });
+    }
+
+    if (full_name.length < 3) {
+      return res.status(400).json({
+        error: "Nombre demasiado corto"
+      });
+    }
+
+    if (city.length < 2) {
+      return res.status(400).json({
+        error: "Municipio inválido"
+      });
+    }
+
+    /* ==========================
+       GENERAR USERNAME SEGURO
+    ========================== */
+
     const baseUsername = generarUsernameBase(full_name, city);
     const username = await generarUsernameUnico(baseUsername);
 
-    // 🔹 Password
+    /* ==========================
+       GENERAR PASSWORD SEGURA
+    ========================== */
+
     const plainPassword = generarPassword();
     const password_hash = await bcrypt.hash(plainPassword, 10);
 
-    // 🔹 Insertar en BD
+    /* ==========================
+       INSERTAR EN BD
+    ========================== */
+
     const result = await pool.query(
       `
-      INSERT INTO users (username, password_hash, role, full_name, city)
-      VALUES ($1, $2, 'closer', $3, $4)
+      INSERT INTO users (
+        username,
+        password_hash,
+        role,
+        full_name,
+        city,
+        is_active
+      )
+      VALUES ($1, $2, 'closer', $3, $4, true)
       RETURNING id
       `,
-      [username, password_hash, full_name || null, city || null]
+      [username, password_hash, full_name.trim(), city.trim()]
     );
 
     const userId = result.rows[0].id;
@@ -90,6 +145,8 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error("CREATE CLOSER ERROR:", err);
-    return res.status(500).json({ error: "Server error" });
+    return res.status(500).json({
+      error: "Error interno del servidor"
+    });
   }
 }
