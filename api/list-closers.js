@@ -34,14 +34,10 @@ export default async function handler(req, res) {
   WHERE role = 'closer'
   AND hidden_by_admin IS NOT TRUE
   AND (
-        is_demo = true
-        OR is_active = true
-        OR (
-            is_active = false
-            AND baja_at IS NOT NULL
-            AND baja_at > NOW() - INTERVAL '1 hour'
-        )
-      )
+      is_demo = true
+      OR is_active = true
+      OR is_active = false
+)
   ORDER BY id DESC
 `);
 
