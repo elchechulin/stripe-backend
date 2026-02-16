@@ -39,7 +39,7 @@ if (check.rows.length === 0) {
 
 const user = check.rows[0];
 
-// Solo permitir eliminación DEFINITIVA si es demo
+// Si es DEMO → eliminación real de base de datos
 if (user.is_demo === true) {
 
   await pool.query(
@@ -50,10 +50,17 @@ if (user.is_demo === true) {
   return res.status(200).json({ success: true });
 }
 
-// Si NO es demo → no se elimina nunca
-return res.status(403).json({
-  error: "No se puede eliminar un closer real"
-});
+// Si NO es demo → solo ocultar del panel
+await pool.query(
+  `
+  UPDATE users
+  SET hidden_by_admin = true
+  WHERE id = $1
+  `,
+  [user_id]
+);
+
+return res.status(200).json({ success: true });
 
 
   } catch (err) {
