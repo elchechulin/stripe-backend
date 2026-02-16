@@ -1,13 +1,13 @@
+import { Pool } from "pg";
 import bcrypt from "bcryptjs";
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 export const config = {
   runtime: "nodejs"
 };
-
-// ===============================
-// USUARIOS DEMO EN MEMORIA
-// ===============================
-global.demoUsers = global.demoUsers || [];
 
 function generarPassword(longitud = 10) {
   const chars =
@@ -40,14 +40,13 @@ export default async function handler(req, res) {
     const plainPassword = generarPassword();
     const password_hash = await bcrypt.hash(plainPassword, 10);
 
-    const demoUser = {
-      id: Date.now(),
-      username,
-      password_hash,
-      full_name: "Usuario Demo"
-    };
-
-    global.demoUsers.push(demoUser);
+    await pool.query(
+      `
+      INSERT INTO users (username, password_hash, role, full_name, is_active, is_demo)
+      VALUES ($1, $2, 'closer', 'Usuario Demo', true, true)
+      `,
+      [username, password_hash]
+    );
 
     return res.status(200).json({
       username,
@@ -55,7 +54,7 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error("CREATE DEMO USER ERROR:", err);
+    console.error("CREATE DEMO ERROR:", err);
     return res.status(500).json({ error: "Server error" });
   }
 }
