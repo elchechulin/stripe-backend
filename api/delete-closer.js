@@ -27,24 +27,33 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing user_id" });
     }
 
-    // SOLO permitir eliminar si es demo
-    const check = await pool.query(
-      "SELECT is_demo FROM users WHERE id = $1",
-      [user_id]
-    );
+    // Verificar si existe y si es demo
+const check = await pool.query(
+  "SELECT id, is_demo FROM users WHERE id = $1",
+  [user_id]
+);
 
-    if (check.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
+if (check.rows.length === 0) {
+  return res.status(404).json({ error: "User not found" });
+}
 
-    if (!check.rows[0].is_demo) {
-      return res.status(403).json({ error: "Cannot delete real closer" });
-    }
+const user = check.rows[0];
 
-    await pool.query(
-      "DELETE FROM users WHERE id = $1",
-      [user_id]
-    );
+// Solo permitir eliminación DEFINITIVA si es demo
+if (user.is_demo === true) {
+
+  await pool.query(
+    "DELETE FROM users WHERE id = $1",
+    [user_id]
+  );
+
+  return res.status(200).json({ success: true });
+}
+
+// Si NO es demo → no se elimina nunca
+return res.status(403).json({
+  error: "No se puede eliminar un closer real"
+});
 
     return res.status(200).json({ success: true });
 
