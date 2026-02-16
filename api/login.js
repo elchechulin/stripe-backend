@@ -17,6 +17,34 @@ export default async function handler(req, res) {
 
   try {
     const { username, password } = req.body;
+    
+    // ===============================
+// LOGIN DEMO (usuarios en memoria)
+// ===============================
+global.demoUsers = global.demoUsers || [];
+
+const demoUser = global.demoUsers.find(
+  u => u.username === username
+);
+
+if (demoUser) {
+  const passwordMatch = await bcrypt.compare(
+    password,
+    demoUser.password_hash
+  );
+
+  if (!passwordMatch) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+
+  return res.status(200).json({
+    id: demoUser.id,
+    username: demoUser.username,
+    role: "closer",
+    full_name: demoUser.full_name,
+    demo: true
+  });
+}
 
     if (!username || !password) {
       return res.status(400).json({ error: "Missing credentials" });
