@@ -1,13 +1,13 @@
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
 export const config = {
   runtime: "nodejs"
 };
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 function generarPassword(longitud = 10) {
   const chars =
@@ -40,15 +40,17 @@ export default async function handler(req, res) {
     const plainPassword = generarPassword();
     const password_hash = await bcrypt.hash(plainPassword, 10);
 
-    await pool.query(
+    const result = await pool.query(
       `
       INSERT INTO users (username, password_hash, role, full_name, is_active, is_demo)
       VALUES ($1, $2, 'closer', 'Usuario Demo', true, true)
+      RETURNING id
       `,
       [username, password_hash]
     );
 
     return res.status(200).json({
+      id: result.rows[0].id,
       username,
       password: plainPassword
     });
