@@ -48,14 +48,15 @@ export default async function handler(req, res) {
     } else {
       // REACTIVAR
       await pool.query(
-        `
-        UPDATE users
-        SET is_active = true,
-            baja_at = NULL
-        WHERE id = $1
-        `,
-        [user_id]
-      );
+  `
+  UPDATE users
+  SET is_active = true,
+      baja_at = NULL,
+      commission_start_at = NOW()
+  WHERE id = $1
+  `,
+  [user_id]
+);
     }
 
     return res.status(200).json({ success: true });
