@@ -31,7 +31,8 @@ export default async function handler(req, res) {
   baja_at
 FROM users
 WHERE role = 'closer'
-AND hidden_by_admin = false
+WHERE role = 'closer'
+AND hidden_by_admin IS NOT TRUE
 AND (
       is_demo = true
       OR is_active = true
