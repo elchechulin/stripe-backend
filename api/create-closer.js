@@ -120,20 +120,29 @@ export default async function handler(req, res) {
     ========================== */
 
     const result = await pool.query(
-      `
-      INSERT INTO users (
-        username,
-        password_hash,
-        role,
-        full_name,
-        city,
-        is_active
-      )
-      VALUES ($1, $2, 'closer', $3, $4, true)
-      RETURNING id
-      `,
-      [username, password_hash, full_name.trim(), city.trim()]
-    );
+  `
+  INSERT INTO users (
+    username,
+    password_hash,
+    role,
+    full_name,
+    city,
+    phone,
+    is_active,
+    is_demo,
+    commission_start_at
+  )
+  VALUES ($1, $2, 'closer', $3, $4, $5, true, false, NOW())
+  RETURNING id
+  `,
+  [
+    username,
+    password_hash,
+    full_name.trim(),
+    city.trim(),
+    phone || null
+  ]
+);
 
     const userId = result.rows[0].id;
 
