@@ -101,12 +101,12 @@ export default async function handler(req, res) {
       }
 
       return res.status(200).json({
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        full_name: user.full_name,
-        password_updated_at: user.password_updated_at
-      });
+  id: user.id,
+  username: user.username,
+  role: user.role,
+  full_name: user.full_name,
+  password_updated_at: user.password_updated_at || user.created_at
+});
     }
 
     // ====================================================
@@ -130,9 +130,9 @@ export default async function handler(req, res) {
       }
 
       return res.status(200).json({
-        active: user.rows[0].is_active,
-        password_updated_at: user.rows[0].password_updated_at
-      });
+  active: user.rows[0].is_active,
+  password_updated_at: user.rows[0].password_updated_at || null
+});
     }
 
     return res.status(405).json({ error: "Method not allowed" });
