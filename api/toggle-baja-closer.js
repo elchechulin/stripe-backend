@@ -23,45 +23,42 @@ export default async function handler(req, res) {
 
     const { user_id } = req.body;
 
-    if (!user_id) {
-      return res.status(400).json({ error: "Missing user_id" });
-    }
-
-    const result = await pool.query(
-      "SELECT is_active, baja_at FROM users WHERE id = $1 AND role = 'closer' AND is_demo IS NOT TRUE",
+    const current = await pool.query(
+      "SELECT is_active FROM users WHERE id = $1",
       [user_id]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Closer not found" });
+    if (current.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    const closer = result.rows[0];
+    const isActive = current.rows[0].is_active;
 
-    // 🔹 SI ESTÁ ACTIVO → DAR DE BAJA
-    if (closer.is_active) {
-
+    if (isActive) {
+      // DAR DE BAJA
       await pool.query(
-        "UPDATE users SET is_active = false, baja_at = NOW() WHERE id = $1",
+        `
+        UPDATE users
+        SET is_active = false,
+            baja_at = NOW()
+        WHERE id = $1
+        `,
         [user_id]
       );
-
-      return res.status(200).json({
-        status: "baja",
-        message: "Closer dado de baja"
-      });
+    } else {
+      // REACTIVAR
+      await pool.query(
+        `
+        UPDATE users
+        SET is_active = true,
+            baja_at = NULL
+        WHERE id = $1
+        `,
+        [user_id]
+      );
     }
 
-    // 🔹 SI ESTÁ DADO DE BAJA → REACTIVAR
-    await pool.query(
-      "UPDATE users SET is_active = true, baja_at = NULL WHERE id = $1",
-      [user_id]
-    );
-
-    return res.status(200).json({
-      status: "alta",
-      message: "Closer reactivado"
-    });
+    return res.status(200).json({ success: true });
 
   } catch (err) {
     console.error("TOGGLE BAJA ERROR:", err);
