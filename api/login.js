@@ -44,11 +44,12 @@ export default async function handler(req, res) {
       }
 
       return res.status(200).json({
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        full_name: user.full_name
-      });
+  id: user.id,
+  username: user.username,
+  role: user.role,
+  full_name: user.full_name,
+  password_updated_at: user.password_updated_at
+});
     }
 
     // 🔹 VALIDAR SESIÓN (para cierre automático)
@@ -69,9 +70,19 @@ export default async function handler(req, res) {
         return res.status(404).json({ active: false });
       }
 
-      return res.status(200).json({
-        active: result.rows[0].is_active
-      });
+      const user = await pool.query(
+  "SELECT is_active, password_updated_at FROM users WHERE id = $1",
+  [userId]
+);
+
+if (user.rows.length === 0) {
+  return res.status(404).json({ active: false });
+}
+
+return res.status(200).json({
+  active: user.rows[0].is_active,
+  password_updated_at: user.rows[0].password_updated_at
+});
     }
 
     return res.status(405).json({ error: "Method not allowed" });
