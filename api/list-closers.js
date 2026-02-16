@@ -1,0 +1,38 @@
+import { Pool } from "pg";
+
+export const config = {
+  runtime: "nodejs"
+};
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+export default async function handler(req, res) {
+
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  try {
+
+    const result = await pool.query(`
+      SELECT id, username, is_active, baja_at
+      FROM users
+      WHERE role = 'closer'
+      AND is_demo IS NOT TRUE
+      ORDER BY id DESC
+    `);
+
+    return res.status(200).json(result.rows);
+
+  } catch (err) {
+    console.error("LIST CLOSERS ERROR:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+}
