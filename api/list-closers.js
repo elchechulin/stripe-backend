@@ -23,15 +23,24 @@ export default async function handler(req, res) {
 
     const result = await pool.query(`
   SELECT 
-    id,
-    username,
-    is_active,
-    is_demo,
-    created_at,
-    baja_at
-  FROM users
-  WHERE role = 'closer'
-  ORDER BY id DESC
+  id,
+  username,
+  is_active,
+  is_demo,
+  created_at,
+  baja_at
+FROM users
+WHERE role = 'closer'
+AND (
+      is_demo = true
+      OR is_active = true
+      OR (
+          is_active = false
+          AND baja_at IS NOT NULL
+          AND baja_at > NOW() - INTERVAL '1 hour'
+      )
+)
+ORDER BY id DESC
 `);
 
     return res.status(200).json(result.rows);
