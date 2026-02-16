@@ -7,47 +7,74 @@ const pool = new Pool({
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
 
   try {
-    const { username, password } = req.body;
-    
-    if (!username || !password) {
-      return res.status(400).json({ error: "Missing credentials" });
+
+    // 🔹 LOGIN NORMAL
+    if (req.method === "POST") {
+
+      const { username, password } = req.body;
+
+      if (!username || !password) {
+        return res.status(400).json({ error: "Missing credentials" });
+      }
+
+      const result = await pool.query(
+        "SELECT * FROM users WHERE username = $1 AND is_active = true",
+        [username]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      const user = result.rows[0];
+
+      const passwordMatch = await bcrypt.compare(
+        password,
+        user.password_hash
+      );
+
+      if (!passwordMatch) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      return res.status(200).json({
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        full_name: user.full_name
+      });
     }
 
-    const result = await pool.query(
-      "SELECT * FROM users WHERE username = $1 AND is_active = true",
-      [username]
-    );
+    // 🔹 VALIDAR SESIÓN (para cierre automático)
+    if (req.method === "GET") {
 
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      const userId = req.query.user_id;
+
+      if (!userId) {
+        return res.status(400).json({ error: "Missing user_id" });
+      }
+
+      const result = await pool.query(
+        "SELECT is_active FROM users WHERE id = $1",
+        [userId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ active: false });
+      }
+
+      return res.status(200).json({
+        active: result.rows[0].is_active
+      });
     }
 
-    const user = result.rows[0];
-
-    const passwordMatch = await bcrypt.compare(
-      password,
-      user.password_hash
-    );
-
-    if (!passwordMatch) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    return res.status(200).json({
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      full_name: user.full_name
-    });
+    return res.status(405).json({ error: "Method not allowed" });
 
   } catch (err) {
     console.error("LOGIN ERROR:", err);
