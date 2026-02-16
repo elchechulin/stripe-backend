@@ -23,14 +23,16 @@ export default async function handler(req, res) {
 
     const result = await pool.query(`
   SELECT 
-    id,
-    username,
-    is_active,
-    is_demo,
-    created_at,
-    baja_at,
-    hidden_by_admin
-  FROM users
+  id,
+  username,
+  is_active,
+  is_demo,
+  created_at,
+  baja_at,
+  hidden_by_admin,
+  phone,
+  commission_start_at
+FROM users
   WHERE role = 'closer'
   AND hidden_by_admin IS NOT TRUE
   AND (
