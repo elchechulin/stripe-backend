@@ -55,7 +55,6 @@ return res.status(403).json({
   error: "No se puede eliminar un closer real"
 });
 
-    return res.status(200).json({ success: true });
 
   } catch (err) {
     console.error("DELETE CLOSER ERROR:", err);
