@@ -23,24 +23,27 @@ export default async function handler(req, res) {
 
     const result = await pool.query(`
   SELECT 
-  id,
-  username,
-  is_active,
-  is_demo,
-  created_at,
-  baja_at,
-  hidden_by_admin,
-  phone,
-  commission_start_at
-FROM users
-  WHERE role = 'closer'
-  AND hidden_by_admin IS NOT TRUE
-  AND (
-      is_demo = true
-      OR is_active = true
-      OR is_active = false
-)
-  ORDER BY id DESC
+    u.id,
+    u.username,
+    u.is_active,
+    u.is_demo,
+    u.created_at,
+    u.baja_at,
+    u.hidden_by_admin,
+    u.phone,
+    u.commission_start_at,
+    p.last_seen,
+    CASE 
+      WHEN p.last_seen IS NOT NULL 
+       AND p.last_seen > NOW() - INTERVAL '5 seconds'
+      THEN true
+      ELSE false
+    END AS online
+  FROM users u
+  LEFT JOIN presence p ON p.user_id = u.id
+  WHERE u.role = 'closer'
+  AND u.hidden_by_admin IS NOT TRUE
+  ORDER BY u.id DESC
 `);
 
     return res.status(200).json(result.rows);
