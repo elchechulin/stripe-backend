@@ -5,6 +5,7 @@
   "dependencies": {
     "stripe": "^14.0.0",
     "pg": "^8.11.3",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "@neondatabase/serverless": "^0.9.0"
   }
 }
