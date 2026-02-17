@@ -1,12 +1,10 @@
-import { Pool } from "pg";
+import { neon } from "@neondatabase/serverless";
 
 export const config = {
   runtime: "nodejs"
 };
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+const sql = neon(process.env.DATABASE_URL);
 
 export default async function handler(req, res) {
 
@@ -21,32 +19,31 @@ export default async function handler(req, res) {
 
   try {
 
-    const result = await pool.query(`
-  SELECT 
-    u.id,
-    u.username,
-    u.is_active,
-    u.is_demo,
-    u.created_at,
-    u.baja_at,
-    u.hidden_by_admin,
-    u.phone,
-    u.commission_start_at,
-    p.last_seen,
-    CASE 
-      WHEN p.last_seen IS NOT NULL 
-       AND p.last_seen > NOW() - INTERVAL '5 seconds'
-      THEN true
-      ELSE false
-    END AS online
-  FROM users u
-  LEFT JOIN presence p ON p.user_id = u.id
-  WHERE u.role = 'closer'
-  AND u.hidden_by_admin IS NOT TRUE
-  ORDER BY u.id DESC
-`);
+    const result = await sql`
+      SELECT 
+        u.id,
+        u.username,
+        u.is_active,
+        u.is_demo,
+        u.created_at,
+        u.baja_at,
+        u.hidden_by_admin,
+        u.phone,
+        u.commission_start_at,
+        p.last_seen,
+        CASE
+          WHEN p.last_seen > NOW() - INTERVAL '5 seconds'
+          THEN true
+          ELSE false
+        END AS online
+      FROM users u
+      LEFT JOIN presence p ON u.id = p.user_id
+      WHERE u.role = 'closer'
+      AND u.hidden_by_admin IS NOT TRUE
+      ORDER BY u.id DESC
+    `;
 
-    return res.status(200).json(result.rows);
+    return res.status(200).json(result);
 
   } catch (err) {
     console.error("LIST CLOSERS ERROR:", err);
