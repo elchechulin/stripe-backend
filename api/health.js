@@ -1,43 +1,42 @@
-import { Pool } from "pg";
+import { neon } from "@neondatabase/serverless";
 
 export const config = {
   runtime: "nodejs"
 };
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+const sql = neon(process.env.DATABASE_URL);
 
 export default async function handler(req, res) {
+
+  // 🔓 CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // ✅ IMPORTANTE: manejar preflight
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   try {
 
-    // =========================
-    // GET → Health check simple
-    // =========================
     if (req.method === "GET") {
       return res.status(200).json({ ok: true });
     }
 
-    // =========================
-    // POST → Actualizar presencia
-    // =========================
     if (req.method === "POST") {
-
       const { user_id } = req.body;
 
       if (!user_id) {
         return res.status(400).json({ error: "user_id requerido" });
       }
 
-      await pool.query(
-        `
+      await sql`
         INSERT INTO presence (user_id, last_seen)
-        VALUES ($1, NOW())
+        VALUES (${user_id}, NOW())
         ON CONFLICT (user_id)
         DO UPDATE SET last_seen = NOW()
-        `,
-        [user_id]
-      );
+      `;
 
       return res.status(200).json({ updated: true });
     }
