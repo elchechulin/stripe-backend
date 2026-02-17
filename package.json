@@ -1,12 +1,10 @@
-package.json
-
 {
-"name": "stripe-backend",
-"version": "1.0.0",
-"type": "module",
-"dependencies": {
-"stripe": "^14.0.0",
-"pg": "^8.11.3",
-"bcryptjs": "^2.4.3"
-}
+  "name": "stripe-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "stripe": "^14.0.0",
+    "pg": "^8.11.3",
+    "bcryptjs": "^2.4.3"
+  }
 }
