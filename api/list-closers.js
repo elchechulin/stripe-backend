@@ -32,10 +32,11 @@ export default async function handler(req, res) {
         u.commission_start_at,
         p.last_seen,
         CASE
-          WHEN p.last_seen > NOW() - INTERVAL '5 seconds'
-          THEN true
-          ELSE false
-        END AS online
+  WHEN p.last_seen IS NOT NULL
+       AND p.last_seen > NOW() - INTERVAL '6 seconds'
+  THEN true
+  ELSE false
+END AS online
       FROM users u
       LEFT JOIN presence p ON u.id = p.user_id
       WHERE u.role = 'closer'
