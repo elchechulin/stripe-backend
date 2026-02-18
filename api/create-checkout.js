@@ -45,7 +45,7 @@ export default async function handler(req, res) {
       return res.status(410).json({ error: "Token expired" });
     }
 
-    const { mensualidad, setup, closer_id, modo } = payload;
+    const { mensualidad, setup, closer_id } = payload;
 
     if (
       typeof mensualidad !== "number" ||
