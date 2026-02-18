@@ -45,7 +45,7 @@ export default async function handler(req, res) {
       return res.status(410).json({ error: "Token expired" });
     }
 
-    const { mensualidad, setup } = payload;
+    const { mensualidad, setup, closer_id, modo } = payload;
 
     if (
       typeof mensualidad !== "number" ||
@@ -87,16 +87,20 @@ export default async function handler(req, res) {
 
     // 🟢 CREAR CHECKOUT
     const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      payment_method_types: ["card"],
-      line_items,
-      subscription_data:
-        modo === "setup"
-          ? { trial_end: nextMonth }
-          : undefined,
-      success_url: "https://mesasllenas.com/gracias.html",
-cancel_url: "https://mesasllenas.com/pago-cancelado.html"
-    });
+  mode: "subscription",
+  payment_method_types: ["card"],
+  line_items,
+  subscription_data:
+    modo === "setup"
+      ? { trial_end: nextMonth }
+      : undefined,
+  metadata: {
+    closer_id: String(closer_id),
+    commission_percentage: "50"
+  },
+  success_url: "https://mesasllenas.com/gracias.html",
+  cancel_url: "https://mesasllenas.com/pago-cancelado.html"
+});
 
     return res.status(200).json({ url: session.url });
 
