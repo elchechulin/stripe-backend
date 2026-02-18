@@ -69,26 +69,38 @@ export default async function handler(req, res) {
         const metadata = session.metadata || {};
 
         try {
-          await sql`
-            INSERT INTO sales_history (
-              closer_id,
-              client_id,
-              monthly_price,
-              service_type,
-              commission_percentage,
-              subscription_status,
-              created_at
-            )
-            VALUES (
-              ${metadata.closer_id || null},
-              ${metadata.client_id || null},
-              ${session.amount_total / 100},
-              ${metadata.service_type || null},
-              ${metadata.commission_percentage || 0},
-              'active',
-              NOW()
-            )
-          `;
+          const price = session.amount_total / 100;
+
+let service_type = null;
+
+if (price <= 100) {
+  service_type = "low";
+} else if (price <= 300) {
+  service_type = "medium";
+} else {
+  service_type = "high";
+}
+
+await sql`
+  INSERT INTO sales_history (
+    closer_id,
+    client_id,
+    monthly_price,
+    service_type,
+    commission_percentage,
+    subscription_status,
+    created_at
+  )
+  VALUES (
+    ${metadata.closer_id || null},
+    ${metadata.client_id || null},
+    ${price},
+    ${service_type},
+    ${metadata.commission_percentage || 0},
+    'active',
+    NOW()
+  )
+`;
         } catch (dbError) {
           console.error("DB insert error:", dbError);
         }
