@@ -92,15 +92,29 @@ export default async function handler(req, res) {
       const user = result.rows[0];
 
       const passwordMatch = await bcrypt.compare(
-        password,
-        user.password_hash
-      );
+  password,
+  user.password_hash
+);
 
-      if (!passwordMatch) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
+if (!passwordMatch) {
+  return res.status(401).json({ error: "Invalid credentials" });
+}
 
-      return res.status(200).json({
+// ================================
+// 🟢 ACTUALIZAR LAST LOGIN + ACTIVITY
+// ================================
+
+await pool.query(
+  `
+  UPDATE users
+  SET last_login = NOW(),
+      last_activity = NOW()
+  WHERE id = $1
+  `,
+  [user.id]
+);
+
+return res.status(200).json({
   id: user.id,
   username: user.username,
   role: user.role,
