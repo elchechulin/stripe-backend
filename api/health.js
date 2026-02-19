@@ -85,13 +85,21 @@ if (req.method === "GET") {
     COALESCE(SUM(sh.monthly_price),0) AS total_revenue,
     COALESCE(SUM(sh.monthly_price * sh.commission_percentage / 100),0) AS total_commissions,
     COALESCE(AVG(sh.monthly_price),0) AS avg_ticket,
+
     COALESCE(SUM(
       CASE
-        WHEN EXTRACT(MONTH FROM sh.created_at) = EXTRACT(MONTH FROM NOW())
-         AND EXTRACT(YEAR FROM sh.created_at) = EXTRACT(YEAR FROM NOW())
+        WHEN DATE_TRUNC('month', sh.created_at) = DATE_TRUNC('month', NOW())
         THEN 1 ELSE 0
       END
-    ),0) AS new_sales_current_month
+    ),0) AS new_sales_current_month,
+
+    COALESCE(SUM(
+      CASE
+        WHEN DATE_TRUNC('month', sh.created_at) = DATE_TRUNC('month', NOW() - INTERVAL '1 month')
+        THEN 1 ELSE 0
+      END
+    ),0) AS new_sales_previous_month
+
   FROM sales_history sh
   LEFT JOIN users u ON sh.closer_id = u.id
   ${where}
@@ -114,10 +122,24 @@ if (req.method === "GET") {
     `;
 
     const kpiResult = await sql(kpiQuery);
+    let kpisData = kpiResult?.[0] || {};
+
+const current = Number(kpisData.new_sales_current_month || 0);
+const previous = Number(kpisData.new_sales_previous_month || 0);
+
+let growth_percentage = 0;
+
+if (previous > 0) {
+  growth_percentage = ((current - previous) / previous) * 100;
+} else if (current > 0) {
+  growth_percentage = 100;
+}
+
+kpisData.growth_percentage = Number(growth_percentage.toFixed(1));
     const salesResult = await sql(salesQuery);
 
     return res.status(200).json({
-  kpis: kpiResult?.[0] || {
+  kpis: kpisData || {
     total_sales: 0,
     total_revenue: 0,
     total_commissions: 0,
