@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     -- Distribución LOW
     COALESCE(
       ROUND(
-        100.0 * SUM(CASE WHEN sh.service_type = 'low' THEN 1 ELSE 0 END)
+        100.0 * SUM(CASE WHEN LOWER(sh.service_type) = 'low' THEN 1 ELSE 0 END)
         / NULLIF(COUNT(sh.id),0)
       ,2),0
     ) AS low_percentage,
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     -- Distribución MEDIUM
     COALESCE(
       ROUND(
-        100.0 * SUM(CASE WHEN sh.service_type = 'medium' THEN 1 ELSE 0 END)
+        100.0 * SUM(CASE WHEN LOWER(sh.service_type) = 'medium' THEN 1 ELSE 0 END)
         / NULLIF(COUNT(sh.id),0)
       ,2),0
     ) AS medium_percentage,
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
     -- Distribución HIGH
     COALESCE(
       ROUND(
-        100.0 * SUM(CASE WHEN sh.service_type = 'high' THEN 1 ELSE 0 END)
+        100.0 * SUM(CASE WHEN LOWER(sh.service_type) = 'high' THEN 1 ELSE 0 END)
         / NULLIF(COUNT(sh.id),0)
       ,2),0
     ) AS high_percentage
