@@ -83,7 +83,7 @@ await sql`
   VALUES (
     ${metadata.closer_id || null},
     ${metadata.client_id || null},
-    ${price},
+    ${session.amount_total / 100},
     ${metadata.service_type || null},
     ${metadata.commission_percentage || 0},
     'active',
