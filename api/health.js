@@ -69,17 +69,6 @@ export default async function handler(req, res) {
         const metadata = session.metadata || {};
 
         try {
-          const price = session.amount_total / 100;
-
-let service_type = null;
-
-if (price <= 100) {
-  service_type = "low";
-} else if (price <= 300) {
-  service_type = "medium";
-} else {
-  service_type = "high";
-}
 
 await sql`
   INSERT INTO sales_history (
@@ -95,7 +84,7 @@ await sql`
     ${metadata.closer_id || null},
     ${metadata.client_id || null},
     ${price},
-    ${service_type},
+    ${metadata.service_type || null},
     ${metadata.commission_percentage || 0},
     'active',
     NOW()
