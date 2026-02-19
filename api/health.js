@@ -55,31 +55,6 @@ if (req.method === "GET") {
 
   try {
 
-    const filters = [
-      sql`sh.subscription_status = 'active'`,
-      view === "disabled"
-        ? sql`u.hidden_by_admin = true`
-        : sql`(u.hidden_by_admin IS NOT TRUE OR u.id IS NULL)`
-    ];
-
-    if (closer_id) {
-      filters.push(sql`sh.closer_id = ${closer_id}`);
-    }
-
-    if (commission) {
-      filters.push(sql`sh.commission_percentage = ${commission}`);
-    }
-
-    if (month) {
-      filters.push(sql`EXTRACT(MONTH FROM sh.created_at) = ${month}`);
-    }
-
-    if (year) {
-      filters.push(sql`EXTRACT(YEAR FROM sh.created_at) = ${year}`);
-    }
-
-    const whereClause = sql`WHERE ${sql.join(filters, sql` AND `)}`;
-
     const kpiResult = await sql`
       SELECT
         COUNT(sh.id) AS total_sales,
@@ -88,7 +63,14 @@ if (req.method === "GET") {
         COALESCE(AVG(sh.monthly_price),0) AS avg_ticket
       FROM sales_history sh
       LEFT JOIN users u ON sh.closer_id = u.id
-      ${whereClause}
+      WHERE sh.subscription_status = 'active'
+      ${view === "disabled"
+        ? sql`AND u.hidden_by_admin = true`
+        : sql`AND (u.hidden_by_admin IS NOT TRUE OR u.id IS NULL)`}
+      ${closer_id ? sql`AND sh.closer_id = ${closer_id}` : sql``}
+      ${commission ? sql`AND sh.commission_percentage = ${commission}` : sql``}
+      ${month ? sql`AND EXTRACT(MONTH FROM sh.created_at) = ${month}` : sql``}
+      ${year ? sql`AND EXTRACT(YEAR FROM sh.created_at) = ${year}` : sql``}
     `;
 
     const salesResult = await sql`
@@ -103,7 +85,14 @@ if (req.method === "GET") {
         sh.created_at
       FROM sales_history sh
       LEFT JOIN users u ON sh.closer_id = u.id
-      ${whereClause}
+      WHERE sh.subscription_status = 'active'
+      ${view === "disabled"
+        ? sql`AND u.hidden_by_admin = true`
+        : sql`AND (u.hidden_by_admin IS NOT TRUE OR u.id IS NULL)`}
+      ${closer_id ? sql`AND sh.closer_id = ${closer_id}` : sql``}
+      ${commission ? sql`AND sh.commission_percentage = ${commission}` : sql``}
+      ${month ? sql`AND EXTRACT(MONTH FROM sh.created_at) = ${month}` : sql``}
+      ${year ? sql`AND EXTRACT(YEAR FROM sh.created_at) = ${year}` : sql``}
       ORDER BY sh.created_at DESC
     `;
 
