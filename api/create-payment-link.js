@@ -60,21 +60,27 @@ const closer_id = Number(body?.closer_id);
     );
 
     // ==============================
-    // 2️⃣ GENERAR TOKEN
-    // ==============================
+// 2️⃣ GENERAR TOKEN
+// ==============================
 
-    const payload = {
+const service_type = body?.service_type;
+
+if (!service_type) {
+  return res.status(400).json({ error: "Missing service_type" });
+}
+
+const payload = {
   mensualidad,
   setup,
   modo,
   closer_id,
-  service_type: body?.service_type, // 👈 AÑADIR ESTO
+  service_type,
   exp: Date.now() + 15 * 60 * 1000
 };
 
-    const payloadB64 = Buffer
-      .from(JSON.stringify(payload))
-      .toString("base64url");
+const payloadB64 = Buffer
+  .from(JSON.stringify(payload))
+  .toString("base64url");
 
     const signature = crypto
       .createHmac("sha256", process.env.PAYMENT_TOKEN_SECRET)
