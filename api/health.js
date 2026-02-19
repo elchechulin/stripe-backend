@@ -55,7 +55,31 @@ if (req.method === "GET") {
 
   try {
 
-    const kpiResult = await sql`
+    let where = `WHERE sh.subscription_status = 'active'`;
+
+    if (view === "disabled") {
+      where += ` AND u.hidden_by_admin = true`;
+    } else {
+      where += ` AND (u.hidden_by_admin IS NOT TRUE OR u.id IS NULL)`;
+    }
+
+    if (closer_id) {
+      where += ` AND sh.closer_id = ${Number(closer_id)}`;
+    }
+
+    if (commission) {
+      where += ` AND sh.commission_percentage = ${Number(commission)}`;
+    }
+
+    if (month) {
+      where += ` AND EXTRACT(MONTH FROM sh.created_at) = ${Number(month)}`;
+    }
+
+    if (year) {
+      where += ` AND EXTRACT(YEAR FROM sh.created_at) = ${Number(year)}`;
+    }
+
+    const kpiQuery = `
       SELECT
         COUNT(sh.id) AS total_sales,
         COALESCE(SUM(sh.monthly_price),0) AS total_revenue,
@@ -63,17 +87,10 @@ if (req.method === "GET") {
         COALESCE(AVG(sh.monthly_price),0) AS avg_ticket
       FROM sales_history sh
       LEFT JOIN users u ON sh.closer_id = u.id
-      WHERE sh.subscription_status = 'active'
-      ${view === "disabled"
-        ? sql`AND u.hidden_by_admin = true`
-        : sql`AND (u.hidden_by_admin IS NOT TRUE OR u.id IS NULL)`}
-      ${closer_id ? sql`AND sh.closer_id = ${closer_id}` : sql``}
-      ${commission ? sql`AND sh.commission_percentage = ${commission}` : sql``}
-      ${month ? sql`AND EXTRACT(MONTH FROM sh.created_at) = ${month}` : sql``}
-      ${year ? sql`AND EXTRACT(YEAR FROM sh.created_at) = ${year}` : sql``}
+      ${where}
     `;
 
-    const salesResult = await sql`
+    const salesQuery = `
       SELECT
         sh.id,
         sh.closer_id,
@@ -85,16 +102,12 @@ if (req.method === "GET") {
         sh.created_at
       FROM sales_history sh
       LEFT JOIN users u ON sh.closer_id = u.id
-      WHERE sh.subscription_status = 'active'
-      ${view === "disabled"
-        ? sql`AND u.hidden_by_admin = true`
-        : sql`AND (u.hidden_by_admin IS NOT TRUE OR u.id IS NULL)`}
-      ${closer_id ? sql`AND sh.closer_id = ${closer_id}` : sql``}
-      ${commission ? sql`AND sh.commission_percentage = ${commission}` : sql``}
-      ${month ? sql`AND EXTRACT(MONTH FROM sh.created_at) = ${month}` : sql``}
-      ${year ? sql`AND EXTRACT(YEAR FROM sh.created_at) = ${year}` : sql``}
+      ${where}
       ORDER BY sh.created_at DESC
     `;
+
+    const kpiResult = await sql(kpiQuery);
+    const salesResult = await sql(salesQuery);
 
     return res.status(200).json({
       kpis: kpiResult?.[0] || {
