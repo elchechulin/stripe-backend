@@ -64,12 +64,13 @@ const closer_id = Number(body?.closer_id);
     // ==============================
 
     const payload = {
-      mensualidad,
-      setup,
-      modo,
-      closer_id,
-      exp: Date.now() + 15 * 60 * 1000
-    };
+  mensualidad,
+  setup,
+  modo,
+  closer_id,
+  service_type: body?.service_type, // 👈 AÑADIR ESTO
+  exp: Date.now() + 15 * 60 * 1000
+};
 
     const payloadB64 = Buffer
       .from(JSON.stringify(payload))
