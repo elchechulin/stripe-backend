@@ -80,15 +80,22 @@ if (req.method === "GET") {
     }
 
     const kpiQuery = `
-      SELECT
-        COUNT(sh.id) AS total_sales,
-        COALESCE(SUM(sh.monthly_price),0) AS total_revenue,
-        COALESCE(SUM(sh.monthly_price * sh.commission_percentage / 100),0) AS total_commissions,
-        COALESCE(AVG(sh.monthly_price),0) AS avg_ticket
-      FROM sales_history sh
-      LEFT JOIN users u ON sh.closer_id = u.id
-      ${where}
-    `;
+  SELECT
+    COUNT(sh.id) AS total_sales,
+    COALESCE(SUM(sh.monthly_price),0) AS total_revenue,
+    COALESCE(SUM(sh.monthly_price * sh.commission_percentage / 100),0) AS total_commissions,
+    COALESCE(AVG(sh.monthly_price),0) AS avg_ticket,
+    COALESCE(SUM(
+      CASE
+        WHEN EXTRACT(MONTH FROM sh.created_at) = EXTRACT(MONTH FROM NOW())
+         AND EXTRACT(YEAR FROM sh.created_at) = EXTRACT(YEAR FROM NOW())
+        THEN 1 ELSE 0
+      END
+    ),0) AS new_sales_current_month
+  FROM sales_history sh
+  LEFT JOIN users u ON sh.closer_id = u.id
+  ${where}
+`;
 
     const salesQuery = `
       SELECT
@@ -110,14 +117,15 @@ if (req.method === "GET") {
     const salesResult = await sql(salesQuery);
 
     return res.status(200).json({
-      kpis: kpiResult?.[0] || {
-        total_sales: 0,
-        total_revenue: 0,
-        total_commissions: 0,
-        avg_ticket: 0
-      },
-      sales: salesResult || []
-    });
+  kpis: kpiResult?.[0] || {
+    total_sales: 0,
+    total_revenue: 0,
+    total_commissions: 0,
+    avg_ticket: 0,
+    new_sales_current_month: 0
+  },
+  sales: salesResult || []
+});
 
   } catch (err) {
     console.error("SALES ERROR:", err);
