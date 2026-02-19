@@ -45,7 +45,7 @@ export default async function handler(req, res) {
       return res.status(410).json({ error: "Token expired" });
     }
 
-    const { mensualidad, setup, closer_id } = payload;
+    const { mensualidad, setup, closer_id, service_type } = payload;
 
     if (
       typeof mensualidad !== "number" ||
@@ -95,9 +95,10 @@ export default async function handler(req, res) {
       ? { trial_end: nextMonth }
       : undefined,
   metadata: {
-    closer_id: String(closer_id),
-    commission_percentage: "50"
-  },
+  closer_id: String(closer_id),
+  service_type: service_type || null,
+  commission_percentage: "50"
+},
   success_url: "https://mesasllenas.com/gracias.html",
   cancel_url: "https://mesasllenas.com/pago-cancelado.html"
 });
