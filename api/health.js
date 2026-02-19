@@ -30,9 +30,97 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // HEALTH CHECK
+  // ==========================================
+  // GET
+  // ==========================================
   if (req.method === "GET") {
-    return res.status(200).json({ ok: true });
+
+    const { type } = req.query;
+
+    // Health normal (no rompe nada)
+    if (!type) {
+      return res.status(200).json({ ok: true });
+    }
+
+    // Si no es sales → error
+    if (type !== "sales") {
+      return res.status(400).json({ error: "Invalid type" });
+    }
+
+    const {
+      closer_id,
+      month,
+      year,
+      commission,
+      view
+    } = req.query;
+
+    const filters = [];
+
+    // Solo ventas activas
+    filters.push(sql`sh.subscription_status = 'active'`);
+
+    // Activos o desactivados
+    if (view === "disabled") {
+      filters.push(sql`u.hidden_by_admin = true`);
+    } else {
+      filters.push(sql`u.hidden_by_admin IS NOT TRUE`);
+    }
+
+    if (closer_id) {
+      filters.push(sql`sh.closer_id = ${closer_id}`);
+    }
+
+    if (commission) {
+      filters.push(sql`sh.commission_percentage = ${commission}`);
+    }
+
+    if (month) {
+      filters.push(sql`EXTRACT(MONTH FROM sh.created_at) = ${month}`);
+    }
+
+    if (year) {
+      filters.push(sql`EXTRACT(YEAR FROM sh.created_at) = ${year}`);
+    }
+
+    try {
+
+      const kpiResult = await sql`
+        SELECT
+          COUNT(sh.id) AS total_sales,
+          COALESCE(SUM(sh.monthly_price),0) AS total_revenue,
+          COALESCE(SUM(sh.monthly_price * sh.commission_percentage / 100),0) AS total_commissions,
+          COALESCE(AVG(sh.monthly_price),0) AS avg_ticket
+        FROM sales_history sh
+        LEFT JOIN users u ON sh.closer_id = u.id
+        WHERE ${sql.join(filters, sql` AND `)}
+      `;
+
+      const salesResult = await sql`
+        SELECT
+          sh.id,
+          sh.closer_id,
+          u.username,
+          sh.monthly_price,
+          sh.service_type,
+          sh.commission_percentage,
+          sh.subscription_status,
+          sh.created_at
+        FROM sales_history sh
+        LEFT JOIN users u ON sh.closer_id = u.id
+        WHERE ${sql.join(filters, sql` AND `)}
+        ORDER BY sh.created_at DESC
+      `;
+
+      return res.status(200).json({
+        kpis: kpiResult[0],
+        sales: salesResult
+      });
+
+    } catch (err) {
+      console.error("SALES ERROR:", err);
+      return res.status(500).json({ error: "Sales query failed" });
+    }
   }
 
   // WEBHOOK STRIPE
