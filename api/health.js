@@ -107,9 +107,12 @@ if (req.method === "GET") {
     });
 
   } catch (err) {
-    console.error("SALES ERROR:", err);
-    return res.status(500).json({ error: "Sales query failed" });
-  }
+  console.error("SALES ERROR FULL:", err);
+  return res.status(500).json({
+    error: "Sales query failed",
+    details: err.message
+  });
+}
 }
 
   // WEBHOOK STRIPE
