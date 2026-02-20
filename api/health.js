@@ -113,32 +113,31 @@ if (req.method === "GET") {
 `;
 
     const salesQuery = `
-      SELECT
-  sh.id,
-  sh.closer_id,
-
-  CASE
-  WHEN sh.created_at < COALESCE(u.commission_start_at, '1970-01-01')
-  THEN 'Administrador'
-  ELSE COALESCE(u.username, 'Administrador')
-END AS username,
-
-  sh.monthly_price,
-  sh.service_type,
-
-  CASE
-  WHEN sh.created_at < COALESCE(u.commission_start_at, '1970-01-01')
-  THEN 100
-  ELSE sh.commission_percentage
-END AS commission_percentage,
-
-  sh.subscription_status,
-  sh.created_at
-      FROM sales_history sh
-      LEFT JOIN users u ON sh.closer_id = u.id
-      ${where}
-      ORDER BY sh.created_at DESC
-    `;
+  SELECT
+    sh.id,
+    sh.closer_id,
+    COALESCE(
+      CASE
+        WHEN sh.created_at < COALESCE(u.commission_start_at, '1970-01-01')
+        THEN 'Administrador'
+        ELSE u.username
+      END,
+      'Administrador'
+    ) AS username,
+    sh.monthly_price,
+    sh.service_type,
+    CASE
+      WHEN sh.created_at < COALESCE(u.commission_start_at, '1970-01-01')
+      THEN 100
+      ELSE sh.commission_percentage
+    END AS commission_percentage,
+    sh.subscription_status,
+    sh.created_at
+  FROM sales_history sh
+  LEFT JOIN users u ON sh.closer_id = u.id
+  ${where}
+  ORDER BY sh.created_at DESC
+`;
 
     const kpiResult = await sql(kpiQuery);
     let kpisData = kpiResult?.[0] || {};
