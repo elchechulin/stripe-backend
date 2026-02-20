@@ -169,12 +169,15 @@ kpisData.growth_percentage = Number(growth_percentage.toFixed(1));
 });
 
   } catch (err) {
-    console.error("SALES ERROR:", err);
-    return res.status(500).json({
-      error: "Sales query failed",
-      details: err.message
-    });
-  }
+  console.error("SALES ERROR FULL:", err);
+  console.error("MESSAGE:", err.message);
+  console.error("STACK:", err.stack);
+
+  return res.status(500).json({
+    error: "Sales query failed",
+    details: err.message
+  });
+}
 }
 
   // WEBHOOK STRIPE
