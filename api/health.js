@@ -84,9 +84,12 @@ if (req.method === "GET") {
     COUNT(sh.id) AS total_sales,
     COALESCE(SUM(sh.monthly_price),0) AS total_revenue,
     COALESCE(SUM(
+  COALESCE(SUM(
   CASE
-    WHEN u.is_active = false THEN 0
-    ELSE sh.monthly_price * sh.commission_percentage / 100
+    WHEN u.commission_start_at IS NOT NULL
+         AND sh.created_at >= u.commission_start_at
+    THEN sh.monthly_price * sh.commission_percentage / 100
+    ELSE 0
   END
 ),0) AS total_commissions,
     COALESCE(AVG(sh.monthly_price),0) AS avg_ticket,
@@ -116,17 +119,21 @@ if (req.method === "GET") {
   sh.closer_id,
 
   CASE
-    WHEN u.is_active = false THEN 'Administrador'
-    ELSE u.username
-  END AS username,
+  WHEN u.commission_start_at IS NOT NULL
+       AND sh.created_at < u.commission_start_at
+  THEN 'Administrador'
+  ELSE u.username
+END AS username,
 
   sh.monthly_price,
   sh.service_type,
 
   CASE
-    WHEN u.is_active = false THEN 100
-    ELSE sh.commission_percentage
-  END AS commission_percentage,
+  WHEN u.commission_start_at IS NOT NULL
+       AND sh.created_at < u.commission_start_at
+  THEN 100
+  ELSE sh.commission_percentage
+END AS commission_percentage,
 
   sh.subscription_status,
   sh.created_at
