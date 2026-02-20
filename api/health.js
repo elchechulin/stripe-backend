@@ -86,7 +86,8 @@ if (req.method === "GET") {
     COALESCE(SUM(
   COALESCE(SUM(
   CASE
-    WHEN u.commission_start_at IS NOT NULL
+    WHEN u.id IS NOT NULL
+         AND u.commission_start_at IS NOT NULL
          AND sh.created_at >= u.commission_start_at
     THEN sh.monthly_price * sh.commission_percentage / 100
     ELSE 0
@@ -119,6 +120,7 @@ if (req.method === "GET") {
   sh.closer_id,
 
   CASE
+  WHEN u.id IS NULL THEN 'Administrador'
   WHEN u.commission_start_at IS NOT NULL
        AND sh.created_at < u.commission_start_at
   THEN 'Administrador'
@@ -129,6 +131,7 @@ END AS username,
   sh.service_type,
 
   CASE
+  WHEN u.id IS NULL THEN 100
   WHEN u.commission_start_at IS NOT NULL
        AND sh.created_at < u.commission_start_at
   THEN 100
