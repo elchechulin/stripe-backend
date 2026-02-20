@@ -84,7 +84,6 @@ if (req.method === "GET") {
     COUNT(sh.id) AS total_sales,
     COALESCE(SUM(sh.monthly_price),0) AS total_revenue,
     COALESCE(SUM(
-  COALESCE(SUM(
   CASE
     WHEN sh.created_at >= COALESCE(u.commission_start_at, '1970-01-01')
     THEN sh.monthly_price * sh.commission_percentage / 100
