@@ -83,7 +83,12 @@ if (req.method === "GET") {
   SELECT
     COUNT(sh.id) AS total_sales,
     COALESCE(SUM(sh.monthly_price),0) AS total_revenue,
-    COALESCE(SUM(sh.monthly_price * sh.commission_percentage / 100),0) AS total_commissions,
+    COALESCE(SUM(
+  CASE
+    WHEN u.is_active = false THEN 0
+    ELSE sh.monthly_price * sh.commission_percentage / 100
+  END
+),0) AS total_commissions,
     COALESCE(AVG(sh.monthly_price),0) AS avg_ticket,
 
     COALESCE(SUM(
@@ -107,14 +112,24 @@ if (req.method === "GET") {
 
     const salesQuery = `
       SELECT
-        sh.id,
-        sh.closer_id,
-        u.username,
-        sh.monthly_price,
-        sh.service_type,
-        sh.commission_percentage,
-        sh.subscription_status,
-        sh.created_at
+  sh.id,
+  sh.closer_id,
+
+  CASE
+    WHEN u.is_active = false THEN 'Administrador'
+    ELSE u.username
+  END AS username,
+
+  sh.monthly_price,
+  sh.service_type,
+
+  CASE
+    WHEN u.is_active = false THEN 100
+    ELSE sh.commission_percentage
+  END AS commission_percentage,
+
+  sh.subscription_status,
+  sh.created_at
       FROM sales_history sh
       LEFT JOIN users u ON sh.closer_id = u.id
       ${where}
