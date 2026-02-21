@@ -209,43 +209,80 @@ kpisData.growth_percentage = Number(growth_percentage.toFixed(1));
       return res.status(200).json({ ignored: "test mode" });
     }
 
-    if (event.type === "checkout.session.completed") {
+    // ==========================================
+// CHECKOUT COMPLETADO (CREAR VENTA)
+// ==========================================
 
-      const session = event.data.object;
+if (event.type === "checkout.session.completed") {
 
-      if (session.payment_status === "paid") {
+  const session = event.data.object;
 
-        const metadata = session.metadata || {};
+  if (session.payment_status === "paid") {
 
-        try {
+    const metadata = session.metadata || {};
 
-await sql`
-  INSERT INTO sales_history (
-    closer_id,
-    client_id,
-    monthly_price,
-    service_type,
-    commission_percentage,
-    subscription_status,
-    stripe_subscription_id,
-    created_at
-  )
-  VALUES (
-    ${metadata.closer_id || null},
-    ${metadata.client_id || null},
-    ${session.amount_total / 100},
-    ${metadata.service_type || null},
-    ${metadata.commission_percentage || 0},
-    'active',
-    ${session.subscription || null},
-    NOW()
-  )
-`;
-        } catch (dbError) {
-          console.error("DB insert error:", dbError);
-        }
-      }
+    try {
+
+      await sql`
+        INSERT INTO sales_history (
+          closer_id,
+          client_id,
+          monthly_price,
+          service_type,
+          commission_percentage,
+          subscription_status,
+          stripe_subscription_id,
+          created_at
+        )
+        VALUES (
+          ${metadata.closer_id || null},
+          ${metadata.client_id || null},
+          ${session.amount_total / 100},
+          ${metadata.service_type || null},
+          ${metadata.commission_percentage || 0},
+          'active',
+          ${session.subscription || null},
+          NOW()
+        )
+      `;
+
+      console.log("Venta creada con subscription:", session.subscription);
+
+    } catch (dbError) {
+      console.error("DB insert error:", dbError);
     }
+  }
+}
+
+
+// ==========================================
+// CANCELACIONES REALES DE SUSCRIPCIÓN
+// ==========================================
+
+if (
+  event.type === "customer.subscription.updated" ||
+  event.type === "customer.subscription.deleted"
+) {
+
+  const subscription = event.data.object;
+
+  if (subscription.status === "canceled") {
+
+    try {
+
+      await sql`
+        UPDATE sales_history
+        SET subscription_status = 'canceled'
+        WHERE stripe_subscription_id = ${subscription.id}
+      `;
+
+      console.log("Subscription cancelada en DB:", subscription.id);
+
+    } catch (err) {
+      console.error("Error actualizando cancelación:", err);
+    }
+  }
+}
 
     return res.status(200).json({ received: true });
   }
