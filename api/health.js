@@ -65,20 +65,6 @@ if (req.method === "GET") {
 
     let where = `WHERE sh.subscription_status = 'active'`;
 
-if (view === "disabled") {
-  where += `
-    AND u.hidden_by_admin = true
-    AND u.deleted_at IS NULL
-  `;
-} else {
-  where += `
-    AND (
-      (u.hidden_by_admin IS NOT TRUE AND u.deleted_at IS NULL)
-      OR u.id IS NULL
-    )
-  `;
-}
-
     if (closer_id) {
       where += ` AND sh.closer_id = ${Number(closer_id)}`;
     }
@@ -132,20 +118,22 @@ if (view === "disabled") {
     sh.id,
     sh.closer_id,
     COALESCE(
-      CASE
-        WHEN sh.created_at < COALESCE(u.commission_start_at, '1970-01-01')
-        THEN 'Administrador'
-        ELSE u.username
-      END,
-      'Administrador'
-    ) AS username,
+  CASE
+    WHEN u.deleted_at IS NOT NULL
+      OR sh.created_at < COALESCE(u.commission_start_at, '1970-01-01')
+    THEN 'Administrador'
+    ELSE u.username
+  END,
+  'Administrador'
+) AS username,
     sh.monthly_price,
     sh.service_type,
     CASE
-      WHEN sh.created_at < COALESCE(u.commission_start_at, '1970-01-01')
-      THEN 100
-      ELSE sh.commission_percentage
-    END AS commission_percentage,
+  WHEN u.deleted_at IS NOT NULL
+    OR sh.created_at < COALESCE(u.commission_start_at, '1970-01-01')
+  THEN 100
+  ELSE sh.commission_percentage
+END AS commission_percentage,
     sh.subscription_status,
     sh.created_at
   FROM sales_history sh
