@@ -79,7 +79,8 @@ export default async function handler(req, res) {
   LEFT JOIN sales_history sh ON u.id = sh.closer_id
 
   WHERE u.role = 'closer'
-  AND u.hidden_by_admin IS NOT TRUE
+AND u.hidden_by_admin IS NOT TRUE
+AND u.deleted_at IS NULL
 
   GROUP BY 
     u.id,
