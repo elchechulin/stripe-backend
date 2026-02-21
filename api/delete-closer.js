@@ -29,7 +29,7 @@ export default async function handler(req, res) {
 
     // Verificar si existe y si es demo
 const check = await pool.query(
-  "SELECT id, is_demo FROM users WHERE id = $1",
+  "SELECT id, is_demo, deleted_at FROM users WHERE id = $1",
   [user_id]
 );
 
@@ -50,11 +50,15 @@ if (user.is_demo === true) {
   return res.status(200).json({ success: true });
 }
 
-// Si NO es demo → solo ocultar del panel
+// Si NO es demo → Soft delete irreversible
+if (user.deleted_at) {
+  return res.status(400).json({ error: "User already deleted" });
+}
+
 await pool.query(
   `
   UPDATE users
-  SET hidden_by_admin = true
+  SET deleted_at = NOW()
   WHERE id = $1
   `,
   [user_id]
