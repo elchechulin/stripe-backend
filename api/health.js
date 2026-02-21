@@ -227,6 +227,7 @@ await sql`
     service_type,
     commission_percentage,
     subscription_status,
+    stripe_subscription_id,
     created_at
   )
   VALUES (
@@ -236,6 +237,7 @@ await sql`
     ${metadata.service_type || null},
     ${metadata.commission_percentage || 0},
     'active',
+    ${session.subscription || null},
     NOW()
   )
 `;
