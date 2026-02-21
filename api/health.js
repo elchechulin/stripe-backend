@@ -57,11 +57,19 @@ if (req.method === "GET") {
 
     let where = `WHERE sh.subscription_status = 'active'`;
 
-    if (view === "disabled") {
-      where += ` AND u.hidden_by_admin = true`;
-    } else {
-      where += ` AND (u.hidden_by_admin IS NOT TRUE OR u.id IS NULL)`;
-    }
+if (view === "disabled") {
+  where += `
+    AND u.hidden_by_admin = true
+    AND u.deleted_at IS NULL
+  `;
+} else {
+  where += `
+    AND (
+      (u.hidden_by_admin IS NOT TRUE AND u.deleted_at IS NULL)
+      OR u.id IS NULL
+    )
+  `;
+}
 
     if (closer_id) {
       where += ` AND sh.closer_id = ${Number(closer_id)}`;
