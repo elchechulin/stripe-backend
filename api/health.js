@@ -120,6 +120,7 @@ if (req.method === "GET") {
     COALESCE(
   CASE
     WHEN u.deleted_at IS NOT NULL
+      OR u.is_active = false
       OR sh.created_at < COALESCE(u.commission_start_at, '1970-01-01')
     THEN 'Administrador'
     ELSE u.username
@@ -130,6 +131,7 @@ if (req.method === "GET") {
     sh.service_type,
     CASE
   WHEN u.deleted_at IS NOT NULL
+    OR u.is_active = false
     OR sh.created_at < COALESCE(u.commission_start_at, '1970-01-01')
   THEN 100
   ELSE sh.commission_percentage
