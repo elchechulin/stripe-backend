@@ -65,6 +65,22 @@ if (req.method === "GET") {
 
     let where = `WHERE sh.subscription_status = 'active'`;
 
+// ===============================
+// VISTA ESTRUCTURAL REAL
+// ===============================
+
+if (view === "closers") {
+  // Solo ventas que siguen perteneciendo a closers activos
+  where += `
+    AND u.deleted_at IS NULL
+    AND u.is_active = true
+    AND sh.created_at >= COALESCE(u.commission_start_at, '1970-01-01')
+  `;
+} else {
+  // Vista general (all o undefined)
+  // Mostrar absolutamente todas las ventas activas
+}
+
     if (closer_id) {
       where += ` AND sh.closer_id = ${Number(closer_id)}`;
     }
