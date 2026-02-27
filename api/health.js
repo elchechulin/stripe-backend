@@ -176,6 +176,77 @@ if (previous > 0) {
 
 kpisData.growth_percentage = Number(growth_percentage.toFixed(1));
     const salesResult = await sql(salesQuery);
+    
+    // ===============================
+// KPIs INDIVIDUALES POR CLOSER
+// ===============================
+
+let closerKpis = [];
+
+if (view === "closers") {
+
+  const closerKpiQuery = `
+    SELECT
+      u.id AS closer_id,
+      u.username,
+
+      COUNT(sh.id) AS total_sales,
+      COALESCE(SUM(sh.monthly_price),0) AS total_revenue,
+
+      COALESCE(SUM(
+        sh.monthly_price * sh.commission_percentage / 100
+      ),0) AS total_commissions,
+
+      COALESCE(AVG(sh.monthly_price),0) AS avg_ticket,
+
+      COALESCE(SUM(
+        CASE
+          WHEN DATE_TRUNC('month', sh.created_at) = DATE_TRUNC('month', NOW())
+          THEN 1 ELSE 0
+        END
+      ),0) AS new_sales_current_month,
+
+      COALESCE(SUM(
+        CASE
+          WHEN DATE_TRUNC('month', sh.created_at) = DATE_TRUNC('month', NOW() - INTERVAL '1 month')
+          THEN 1 ELSE 0
+        END
+      ),0) AS new_sales_previous_month
+
+    FROM sales_history sh
+    JOIN users u ON sh.closer_id = u.id
+
+    WHERE
+      sh.subscription_status = 'active'
+      AND u.deleted_at IS NULL
+      AND u.is_active = true
+      AND sh.created_at >= COALESCE(u.commission_start_at, '1970-01-01')
+
+    GROUP BY u.id, u.username
+    ORDER BY total_revenue DESC
+  `;
+
+  const result = await sql(closerKpiQuery);
+
+  closerKpis = result.map(row => {
+
+    const current = Number(row.new_sales_current_month || 0);
+    const previous = Number(row.new_sales_previous_month || 0);
+
+    let growth = 0;
+
+    if (previous > 0) {
+      growth = ((current - previous) / previous) * 100;
+    } else if (current > 0) {
+      growth = 100;
+    }
+
+    return {
+      ...row,
+      growth_percentage: Number(growth.toFixed(1))
+    };
+  });
+}
 
     return res.status(200).json({
   kpis: kpisData || {
@@ -185,7 +256,8 @@ kpisData.growth_percentage = Number(growth_percentage.toFixed(1));
     avg_ticket: 0,
     new_sales_current_month: 0
   },
-  sales: salesResult || []
+  sales: salesResult || [],
+  closer_kpis: closerKpis
 });
 
   } catch (err) {
