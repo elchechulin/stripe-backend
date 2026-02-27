@@ -248,6 +248,56 @@ if (view === "closers") {
   });
 }
 
+// ===============================
+// 🏆 RANKING MENSUAL PONDERADO
+// ===============================
+
+let monthlyRanking = [];
+
+if (view === "closers") {
+
+  const rankingQuery = `
+    SELECT
+      u.id AS closer_id,
+      u.username,
+      COUNT(sh.id) AS monthly_sales,
+      COALESCE(SUM(sh.monthly_price),0) AS monthly_revenue
+    FROM sales_history sh
+    JOIN users u ON sh.closer_id = u.id
+    WHERE
+      DATE_TRUNC('month', sh.created_at) = DATE_TRUNC('month', NOW())
+      AND u.deleted_at IS NULL
+      AND u.is_active = true
+    GROUP BY u.id, u.username
+  `;
+
+  const rankingResult = await sql(rankingQuery);
+
+  if (rankingResult.length > 0) {
+
+    const maxRevenue = Math.max(...rankingResult.map(r => Number(r.monthly_revenue)));
+    const maxSales   = Math.max(...rankingResult.map(r => Number(r.monthly_sales)));
+
+    monthlyRanking = rankingResult.map(r => {
+
+      const revenueNorm = maxRevenue > 0 ? Number(r.monthly_revenue) / maxRevenue : 0;
+      const salesNorm   = maxSales > 0 ? Number(r.monthly_sales) / maxSales : 0;
+
+      const score = (revenueNorm * 0.7) + (salesNorm * 0.3);
+
+      return {
+        ...r,
+        score: Number(score.toFixed(4))
+      };
+
+    }).sort((a, b) => b.score - a.score)
+      .map((r, index) => ({
+        position: index + 1,
+        ...r
+      }));
+  }
+}
+
     return res.status(200).json({
   kpis: kpisData || {
     total_sales: 0,
@@ -257,7 +307,8 @@ if (view === "closers") {
     new_sales_current_month: 0
   },
   sales: salesResult || [],
-  closer_kpis: closerKpis
+  closer_kpis: closerKpis,
+  monthly_ranking: monthlyRanking
 });
 
   } catch (err) {
