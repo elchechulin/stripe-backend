@@ -254,40 +254,63 @@ if (view === "closers") {
 }
 
 // ===============================
-// 🏆 RANKING MENSUAL PONDERADO
+// 📊 VISTA ANUAL ESTRUCTURADA
 // ===============================
 
-let monthlyRanking = [];
+let annualSummary = null;
+let annualRanking = [];
+let annualMonthlyBreakdown = [];
 
 if (view === "closers") {
 
-  const rankingQuery = `
+  const selectedYear = year ? Number(year) : new Date().getFullYear();
+
+  // 🔹 RESUMEN ANUAL GLOBAL
+  const annualSummaryQuery = `
     SELECT
-      u.id AS closer_id,
-      u.username,
-      COUNT(sh.id) AS monthly_sales,
-      COALESCE(SUM(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS monthly_revenue
+      COUNT(sh.id) AS total_sales,
+      COALESCE(SUM(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS total_revenue,
+      COALESCE(AVG(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS avg_ticket
     FROM sales_history sh
     JOIN users u ON sh.closer_id = u.id
     WHERE
-  DATE_TRUNC('month', sh.created_at) = DATE_TRUNC('month', NOW())
-  AND COALESCE(sh.is_fully_refunded,false) = false
-  AND u.deleted_at IS NULL
-  AND u.is_active = true
+      EXTRACT(YEAR FROM sh.created_at) = ${selectedYear}
+      AND COALESCE(sh.is_fully_refunded,false) = false
+      AND u.deleted_at IS NULL
+      AND u.is_active = true
+  `;
+
+  const annualSummaryResult = await sql(annualSummaryQuery);
+  annualSummary = annualSummaryResult?.[0] || null;
+
+  // 🔹 RANKING ANUAL PONDERADO
+  const annualRankingQuery = `
+    SELECT
+      u.id AS closer_id,
+      u.username,
+      COUNT(sh.id) AS yearly_sales,
+      COALESCE(SUM(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS yearly_revenue
+    FROM sales_history sh
+    JOIN users u ON sh.closer_id = u.id
+    WHERE
+      EXTRACT(YEAR FROM sh.created_at) = ${selectedYear}
+      AND COALESCE(sh.is_fully_refunded,false) = false
+      AND u.deleted_at IS NULL
+      AND u.is_active = true
     GROUP BY u.id, u.username
   `;
 
-  const rankingResult = await sql(rankingQuery);
+  const rankingYearResult = await sql(annualRankingQuery);
 
-  if (rankingResult.length > 0) {
+  if (rankingYearResult.length > 0) {
 
-    const maxRevenue = Math.max(...rankingResult.map(r => Number(r.monthly_revenue)));
-    const maxSales   = Math.max(...rankingResult.map(r => Number(r.monthly_sales)));
+    const maxRevenue = Math.max(...rankingYearResult.map(r => Number(r.yearly_revenue)));
+    const maxSales   = Math.max(...rankingYearResult.map(r => Number(r.yearly_sales)));
 
-    monthlyRanking = rankingResult.map(r => {
+    annualRanking = rankingYearResult.map(r => {
 
-      const revenueNorm = maxRevenue > 0 ? Number(r.monthly_revenue) / maxRevenue : 0;
-      const salesNorm   = maxSales > 0 ? Number(r.monthly_sales) / maxSales : 0;
+      const revenueNorm = maxRevenue > 0 ? Number(r.yearly_revenue) / maxRevenue : 0;
+      const salesNorm   = maxSales > 0 ? Number(r.yearly_sales) / maxSales : 0;
 
       const score = (revenueNorm * 0.7) + (salesNorm * 0.3);
 
@@ -302,6 +325,25 @@ if (view === "closers") {
         ...r
       }));
   }
+
+  // 🔹 DESGLOSE MES A MES
+  const monthlyBreakdownQuery = `
+    SELECT
+      EXTRACT(MONTH FROM sh.created_at) AS month,
+      COUNT(sh.id) AS total_sales,
+      COALESCE(SUM(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS total_revenue
+    FROM sales_history sh
+    JOIN users u ON sh.closer_id = u.id
+    WHERE
+      EXTRACT(YEAR FROM sh.created_at) = ${selectedYear}
+      AND COALESCE(sh.is_fully_refunded,false) = false
+      AND u.deleted_at IS NULL
+      AND u.is_active = true
+    GROUP BY month
+    ORDER BY month ASC
+  `;
+
+  annualMonthlyBreakdown = await sql(monthlyBreakdownQuery);
 }
 
     return res.status(200).json({
@@ -314,7 +356,10 @@ if (view === "closers") {
   },
   sales: salesResult || [],
   closer_kpis: closerKpis,
-  monthly_ranking: monthlyRanking
+  monthly_ranking: monthlyRanking,
+  annual_summary: annualSummary,
+  annual_ranking: annualRanking,
+  annual_monthly_breakdown: annualMonthlyBreakdown
 });
 
   } catch (err) {
