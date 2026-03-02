@@ -362,6 +362,22 @@ if (event.type === "checkout.session.completed") {
 
     try {
 
+      // 🔹 Recuperar sesión expandida para obtener charge real
+      const fullSession = await stripe.checkout.sessions.retrieve(
+        session.id,
+        {
+          expand: ["payment_intent.charges"]
+        }
+      );
+
+      const paymentIntent = fullSession.payment_intent;
+      const charge =
+        paymentIntent &&
+        paymentIntent.charges &&
+        paymentIntent.charges.data.length > 0
+          ? paymentIntent.charges.data[0]
+          : null;
+
       await sql`
         INSERT INTO sales_history (
           closer_id,
@@ -371,6 +387,8 @@ if (event.type === "checkout.session.completed") {
           commission_percentage,
           subscription_status,
           stripe_subscription_id,
+          stripe_payment_intent_id,
+          stripe_charge_id,
           created_at
         )
         VALUES (
@@ -381,6 +399,8 @@ if (event.type === "checkout.session.completed") {
           ${metadata.commission_percentage || 0},
           'active',
           ${session.subscription || null},
+          ${paymentIntent ? paymentIntent.id : null},
+          ${charge ? charge.id : null},
           NOW()
         )
       `;
@@ -420,6 +440,56 @@ if (
     } catch (err) {
       console.error("Error actualizando cancelación:", err);
     }
+  }
+}
+
+// ==========================================
+// REFUNDS (TOTALES Y PARCIALES)
+// ==========================================
+
+if (event.type === "charge.refunded") {
+
+  const charge = event.data.object;
+
+  try {
+
+    // Buscar venta por stripe_charge_id
+    const saleResult = await sql`
+      SELECT id, monthly_price, refund_amount
+      FROM sales_history
+      WHERE stripe_charge_id = ${charge.id}
+      LIMIT 1
+    `;
+
+    if (saleResult.length === 0) {
+      console.log("Refund recibido pero no se encontró venta asociada");
+      return res.status(200).json({ received: true });
+    }
+
+    const sale = saleResult[0];
+
+    // Stripe devuelve amount_refunded en centimos
+    const refundedAmount = charge.amount_refunded / 100;
+
+    const newRefundTotal =
+      Number(sale.refund_amount || 0) + Number(refundedAmount);
+
+    const fullyRefunded =
+      newRefundTotal >= Number(sale.monthly_price);
+
+    await sql`
+      UPDATE sales_history
+      SET
+        refund_amount = ${newRefundTotal},
+        is_fully_refunded = ${fullyRefunded},
+        refunded_at = NOW()
+      WHERE id = ${sale.id}
+    `;
+
+    console.log("Refund aplicado correctamente:", charge.id);
+
+  } catch (err) {
+    console.error("Error procesando refund:", err);
   }
 }
 
