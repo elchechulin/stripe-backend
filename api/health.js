@@ -63,7 +63,11 @@ if (req.method === "GET") {
 
   try {
 
-    let where = `WHERE sh.subscription_status = 'active'`;
+    let where = `
+WHERE 
+  sh.subscription_status = 'active'
+  AND COALESCE(sh.is_fully_refunded,false) = false
+`;
 
 // ===============================
 // VISTA ESTRUCTURAL REAL
@@ -100,15 +104,15 @@ if (view === "closers") {
     const kpiQuery = `
   SELECT
     COUNT(sh.id) AS total_sales,
-    COALESCE(SUM(sh.monthly_price),0) AS total_revenue,
+    COALESCE(SUM(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS total_revenue,
     COALESCE(SUM(
   CASE
     WHEN sh.created_at >= COALESCE(u.commission_start_at, '1970-01-01')
-    THEN sh.monthly_price * sh.commission_percentage / 100
+    THEN (sh.monthly_price - COALESCE(sh.refund_amount,0)) * sh.commission_percentage / 100
     ELSE 0
   END
 ),0) AS total_commissions,
-    COALESCE(AVG(sh.monthly_price),0) AS avg_ticket,
+    COALESCE(AVG(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS avg_ticket,
 
     COALESCE(SUM(
       CASE
@@ -191,13 +195,13 @@ if (view === "closers") {
       u.username,
 
       COUNT(sh.id) AS total_sales,
-      COALESCE(SUM(sh.monthly_price),0) AS total_revenue,
+      COALESCE(SUM(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS total_revenue,
 
       COALESCE(SUM(
-        sh.monthly_price * sh.commission_percentage / 100
-      ),0) AS total_commissions,
+  (sh.monthly_price - COALESCE(sh.refund_amount,0)) * sh.commission_percentage / 100
+),0) AS total_commissions,
 
-      COALESCE(AVG(sh.monthly_price),0) AS avg_ticket,
+      COALESCE(AVG(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS avg_ticket,
 
       COALESCE(SUM(
         CASE
@@ -217,10 +221,11 @@ if (view === "closers") {
     JOIN users u ON sh.closer_id = u.id
 
     WHERE
-      sh.subscription_status = 'active'
-      AND u.deleted_at IS NULL
-      AND u.is_active = true
-      AND sh.created_at >= COALESCE(u.commission_start_at, '1970-01-01')
+  sh.subscription_status = 'active'
+  AND COALESCE(sh.is_fully_refunded,false) = false
+  AND u.deleted_at IS NULL
+  AND u.is_active = true
+  AND sh.created_at >= COALESCE(u.commission_start_at, '1970-01-01')
 
     GROUP BY u.id, u.username
     ORDER BY total_revenue DESC
@@ -261,13 +266,14 @@ if (view === "closers") {
       u.id AS closer_id,
       u.username,
       COUNT(sh.id) AS monthly_sales,
-      COALESCE(SUM(sh.monthly_price),0) AS monthly_revenue
+      COALESCE(SUM(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS monthly_revenue
     FROM sales_history sh
     JOIN users u ON sh.closer_id = u.id
     WHERE
-      DATE_TRUNC('month', sh.created_at) = DATE_TRUNC('month', NOW())
-      AND u.deleted_at IS NULL
-      AND u.is_active = true
+  DATE_TRUNC('month', sh.created_at) = DATE_TRUNC('month', NOW())
+  AND COALESCE(sh.is_fully_refunded,false) = false
+  AND u.deleted_at IS NULL
+  AND u.is_active = true
     GROUP BY u.id, u.username
   `;
 
