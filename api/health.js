@@ -312,6 +312,12 @@ let annualSummary = null;
 let annualRanking = [];
 let annualMonthlyBreakdown = [];
 
+// ===============================
+// 📈 YTD (Year To Date) PRO
+// ===============================
+
+let ytdData = null;
+
 if (view === "closers") {
 
   const selectedYear = year ? Number(year) : new Date().getFullYear();
@@ -395,6 +401,139 @@ if (view === "closers") {
   `;
 
   annualMonthlyBreakdown = await sql(monthlyBreakdownQuery);
+  
+  // ===============================
+// 📈 YTD ACTUAL
+// ===============================
+
+const ytdCurrentQuery = `
+  SELECT
+    COUNT(sh.id) AS total_sales,
+    COALESCE(SUM(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS total_revenue,
+    COALESCE(SUM(
+      (sh.monthly_price - COALESCE(sh.refund_amount,0)) * sh.commission_percentage / 100
+    ),0) AS total_commissions,
+    COALESCE(AVG(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS avg_ticket
+  FROM sales_history sh
+  JOIN users u ON sh.closer_id = u.id
+  WHERE
+    sh.created_at >= DATE_TRUNC('year', NOW())
+    AND sh.subscription_status = 'active'
+    AND COALESCE(sh.is_fully_refunded,false) = false
+    AND u.deleted_at IS NULL
+    AND u.is_active = true
+`;
+
+const ytdCurrentResult = await sql(ytdCurrentQuery);
+const ytdCurrent = ytdCurrentResult?.[0] || {
+  total_sales: 0,
+  total_revenue: 0,
+  total_commissions: 0,
+  avg_ticket: 0
+};
+
+// ===============================
+// 📈 YTD AÑO ANTERIOR MISMO PERIODO
+// ===============================
+
+const ytdPreviousQuery = `
+  SELECT
+    COUNT(sh.id) AS total_sales,
+    COALESCE(SUM(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS total_revenue,
+    COALESCE(SUM(
+      (sh.monthly_price - COALESCE(sh.refund_amount,0)) * sh.commission_percentage / 100
+    ),0) AS total_commissions
+  FROM sales_history sh
+  JOIN users u ON sh.closer_id = u.id
+  WHERE
+    sh.created_at >= DATE_TRUNC('year', NOW() - INTERVAL '1 year')
+    AND sh.created_at <= NOW() - INTERVAL '1 year'
+    AND sh.subscription_status = 'active'
+    AND COALESCE(sh.is_fully_refunded,false) = false
+    AND u.deleted_at IS NULL
+    AND u.is_active = true
+`;
+
+const ytdPreviousResult = await sql(ytdPreviousQuery);
+const ytdPrevious = ytdPreviousResult?.[0] || {
+  total_sales: 0,
+  total_revenue: 0,
+  total_commissions: 0
+};
+
+// ===============================
+// 📊 CÁLCULO CRECIMIENTO
+// ===============================
+
+function calcGrowth(current, previous) {
+  if (previous > 0) {
+    return ((current - previous) / previous) * 100;
+  }
+  if (current > 0) return 100;
+  return 0;
+}
+
+const revenueGrowth = calcGrowth(
+  Number(ytdCurrent.total_revenue),
+  Number(ytdPrevious.total_revenue)
+);
+
+const salesGrowth = calcGrowth(
+  Number(ytdCurrent.total_sales),
+  Number(ytdPrevious.total_sales)
+);
+
+const commissionsGrowth = calcGrowth(
+  Number(ytdCurrent.total_commissions),
+  Number(ytdPrevious.total_commissions)
+);
+
+// ===============================
+// 🔮 FORECAST FIN DE AÑO
+// ===============================
+
+const now = new Date();
+const startOfYear = new Date(now.getFullYear(), 0, 1);
+const daysPassed = Math.max(
+  1,
+  Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24))
+);
+
+const dailyRevenueAvg =
+  Number(ytdCurrent.total_revenue) / daysPassed;
+
+const dailySalesAvg =
+  Number(ytdCurrent.total_sales) / daysPassed;
+
+const dailyCommissionAvg =
+  Number(ytdCurrent.total_commissions) / daysPassed;
+
+const projectedRevenue = dailyRevenueAvg * 365;
+const projectedSales = dailySalesAvg * 365;
+const projectedCommissions = dailyCommissionAvg * 365;
+
+// ===============================
+// 📦 ESTRUCTURA FINAL YTD
+// ===============================
+
+ytdData = {
+  current: {
+    ...ytdCurrent
+  },
+  previous: {
+    ...ytdPrevious
+  },
+  growth: {
+    revenue_growth_percentage: Number(revenueGrowth.toFixed(1)),
+    sales_growth_percentage: Number(salesGrowth.toFixed(1)),
+    commissions_growth_percentage: Number(commissionsGrowth.toFixed(1))
+  },
+  forecast: {
+    projected_revenue: Number(projectedRevenue.toFixed(2)),
+    projected_sales: Number(projectedSales.toFixed(1)),
+    projected_commissions: Number(projectedCommissions.toFixed(2))
+  }
+};
 }
 
     return res.status(200).json({
@@ -410,7 +549,8 @@ if (view === "closers") {
   monthly_ranking: monthlyRanking,
   annual_summary: annualSummary,
   annual_ranking: annualRanking,
-  annual_monthly_breakdown: annualMonthlyBreakdown
+  annual_monthly_breakdown: annualMonthlyBreakdown,
+  ytd: ytdData,
 });
 
   } catch (err) {
