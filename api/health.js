@@ -54,12 +54,17 @@ if (req.method === "GET") {
   }
 
   const {
-    closer_id,
-    month,
-    year,
-    commission,
-    view
-  } = req.query;
+  closer_id,
+  month,
+  year,
+  commission,
+  view,
+  compare_month_a,
+  compare_year_a,
+  compare_month_b,
+  compare_year_b,
+  compare_closer_id
+} = req.query;
 
   try {
 
@@ -318,6 +323,91 @@ let annualMonthlyBreakdown = [];
 
 let ytdData = null;
 
+// ===============================
+// 📊 COMPARATIVA AVANZADA
+// ===============================
+
+let comparisonData = null;
+
+if (
+  view === "closers" &&
+  compare_month_a &&
+  compare_year_a &&
+  compare_month_b &&
+  compare_year_b
+) {
+
+  const monthA = Number(compare_month_a);
+  const yearA  = Number(compare_year_a);
+  const monthB = Number(compare_month_b);
+  const yearB  = Number(compare_year_b);
+
+  const closerFilter =
+    compare_closer_id
+      ? `AND sh.closer_id = ${Number(compare_closer_id)}`
+      : "";
+
+  async function getMonthData(month, year) {
+
+    const query = `
+      SELECT
+        COUNT(sh.id) AS total_sales,
+        COALESCE(SUM(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS total_revenue,
+        COALESCE(SUM(
+          (sh.monthly_price - COALESCE(sh.refund_amount,0)) * sh.commission_percentage / 100
+        ),0) AS total_commissions,
+        COALESCE(AVG(sh.monthly_price - COALESCE(sh.refund_amount,0)),0) AS avg_ticket
+      FROM sales_history sh
+      JOIN users u ON sh.closer_id = u.id
+      WHERE
+        EXTRACT(MONTH FROM sh.created_at) = ${month}
+        AND EXTRACT(YEAR FROM sh.created_at) = ${year}
+        AND sh.subscription_status = 'active'
+        AND COALESCE(sh.is_fully_refunded,false) = false
+        AND u.deleted_at IS NULL
+        AND u.is_active = true
+        AND sh.created_at >= COALESCE(u.commission_start_at,'1970-01-01')
+        ${closerFilter}
+    `;
+
+    const result = await sql(query);
+    return result?.[0] || {
+      total_sales: 0,
+      total_revenue: 0,
+      total_commissions: 0,
+      avg_ticket: 0
+    };
+  }
+
+  const monthAData = await getMonthData(monthA, yearA);
+  const monthBData = await getMonthData(monthB, yearB);
+
+  function calcGrowth(current, previous) {
+    if (Number(previous) > 0) {
+      return ((Number(current) - Number(previous)) / Number(previous)) * 100;
+    }
+    if (Number(current) > 0) return 100;
+    return 0;
+  }
+
+  comparisonData = {
+    scope: compare_closer_id ? "closer" : "global",
+    month_a: monthAData,
+    month_b: monthBData,
+    growth: {
+      sales_growth_percentage:
+        Number(calcGrowth(monthBData.total_sales, monthAData.total_sales).toFixed(1)),
+      revenue_growth_percentage:
+        Number(calcGrowth(monthBData.total_revenue, monthAData.total_revenue).toFixed(1)),
+      commissions_growth_percentage:
+        Number(calcGrowth(monthBData.total_commissions, monthAData.total_commissions).toFixed(1)),
+      ticket_growth_percentage:
+        Number(calcGrowth(monthBData.avg_ticket, monthAData.avg_ticket).toFixed(1))
+    }
+  };
+
+}
+
 if (view === "closers") {
 
   const selectedYear = year ? Number(year) : new Date().getFullYear();
@@ -551,6 +641,7 @@ ytdData = {
   annual_ranking: annualRanking,
   annual_monthly_breakdown: annualMonthlyBreakdown,
   ytd: ytdData,
+  comparison: comparisonData,
 });
 
   } catch (err) {
