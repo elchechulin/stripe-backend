@@ -299,7 +299,17 @@ if (previous > 0) {
 }
 
 kpisData.growth_percentage = Number(growth_percentage.toFixed(1));
-    const salesResult = await sql(salesQuery);
+
+// ===============================
+// KPI BENEFICIO BRUTO
+// ===============================
+
+const revenue = Number(kpisData.total_revenue || 0);
+const commissions = Number(kpisData.total_commissions || 0);
+
+kpisData.gross_profit = Number((revenue - commissions).toFixed(2));
+
+const salesResult = await sql(salesQuery);
     
     // ===============================
 // KPIs INDIVIDUALES POR CLOSER
