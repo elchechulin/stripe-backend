@@ -49,11 +49,16 @@ if (req.method === "GET") {
     return res.status(200).json({ ok: true });
   }
 
-  if (type !== "sales") {
-    return res.status(400).json({ error: "Invalid type" });
-  }
+  // ===============================
+// TYPE VALIDATION
+// ===============================
+
+if (type !== "sales" && type !== "sale_detail") {
+  return res.status(400).json({ error: "Invalid type" });
+}
 
   const {
+  id,
   closer_id,
   month,
   year,
@@ -67,6 +72,97 @@ if (req.method === "GET") {
 } = req.query;
 
   try {
+  
+  // ===============================
+// 🔎 DETALLE DE VENTA
+// ===============================
+
+if (type === "sale_detail") {
+
+  if (!id) {
+    return res.status(400).json({ error: "Missing sale id" });
+  }
+
+  const saleQuery = `
+    SELECT
+      sh.*,
+      u.username,
+      u.is_active,
+      u.deleted_at,
+      u.commission_start_at
+    FROM sales_history sh
+    LEFT JOIN users u ON sh.closer_id = u.id
+    WHERE sh.id = ${Number(id)}
+    LIMIT 1
+  `;
+
+  const result = await sql(saleQuery);
+
+  if (!result || result.length === 0) {
+    return res.status(404).json({ error: "Sale not found" });
+  }
+
+  const sale = result[0];
+
+  let stripeData = {};
+
+  try {
+
+    if (sale.stripe_subscription_id) {
+
+      const subscription = await stripe.subscriptions.retrieve(
+        sale.stripe_subscription_id
+      );
+
+      stripeData.subscription = {
+        id: subscription.id,
+        status: subscription.status,
+        current_period_start: subscription.current_period_start,
+        current_period_end: subscription.current_period_end,
+        cancel_at: subscription.cancel_at,
+        cancel_at_period_end: subscription.cancel_at_period_end
+      };
+
+    }
+
+    if (sale.stripe_payment_intent_id) {
+
+      const paymentIntent = await stripe.paymentIntents.retrieve(
+        sale.stripe_payment_intent_id
+      );
+
+      stripeData.payment_intent = {
+        id: paymentIntent.id,
+        status: paymentIntent.status,
+        amount_received: paymentIntent.amount_received
+      };
+
+    }
+
+    if (sale.stripe_charge_id) {
+
+      const charge = await stripe.charges.retrieve(
+        sale.stripe_charge_id
+      );
+
+      stripeData.charge = {
+        id: charge.id,
+        receipt_url: charge.receipt_url,
+        amount_refunded: charge.amount_refunded
+      };
+
+    }
+
+  } catch (stripeErr) {
+    console.error("Stripe detail error:", stripeErr.message);
+  }
+
+  return res.status(200).json({
+    sale,
+    stripe: stripeData
+  });
+
+}
 
     let where = `
 WHERE 
