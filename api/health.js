@@ -712,31 +712,49 @@ if (event.type === "checkout.session.completed") {
           : null;
 
       await sql`
-        INSERT INTO sales_history (
-          closer_id,
-          client_id,
-          monthly_price,
-          service_type,
-          commission_percentage,
-          subscription_status,
-          stripe_subscription_id,
-          stripe_payment_intent_id,
-          stripe_charge_id,
-          created_at
-        )
-        VALUES (
-          ${metadata.closer_id || null},
-          ${metadata.client_id || null},
-          ${session.amount_total / 100},
-          ${metadata.service_type || null},
-          ${metadata.commission_percentage || 0},
-          'active',
-          ${session.subscription || null},
-          ${paymentIntent ? paymentIntent.id : null},
-          ${charge ? charge.id : null},
-          NOW()
-        )
-      `;
+  INSERT INTO sales_history (
+    closer_id,
+    client_id,
+    monthly_price,
+    service_type,
+    commission_percentage,
+    subscription_status,
+    stripe_subscription_id,
+    stripe_payment_intent_id,
+    stripe_charge_id,
+    created_at,
+
+    restaurant_name,
+    restaurant_cp,
+    restaurant_city,
+    restaurant_country,
+    google_reviews,
+    google_rating,
+    setup_fee,
+    discount_percentage
+  )
+  VALUES (
+    ${metadata.closer_id || null},
+    ${metadata.client_id || null},
+    ${session.amount_total / 100},
+    ${metadata.service_type || null},
+    ${metadata.commission_percentage || 0},
+    'active',
+    ${session.subscription || null},
+    ${paymentIntent ? paymentIntent.id : null},
+    ${charge ? charge.id : null},
+    NOW(),
+
+    ${metadata.restaurant_name || null},
+    ${metadata.restaurant_cp || null},
+    ${metadata.restaurant_city || null},
+    ${metadata.restaurant_country || null},
+    ${metadata.google_reviews || null},
+    ${metadata.google_rating || null},
+    ${metadata.setup_fee || false},
+    ${metadata.discount_percentage || 0}
+  )
+`;
 
       console.log("Venta creada con subscription:", session.subscription);
 
