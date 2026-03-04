@@ -97,7 +97,18 @@ export default async function handler(req, res) {
   metadata: {
   closer_id: String(closer_id),
   service_type: service_type || null,
-  commission_percentage: "50"
+  commission_percentage: "50",
+
+  restaurant_name: payload.restaurant_name || null,
+  restaurant_cp: payload.restaurant_cp || null,
+  restaurant_city: payload.restaurant_city || null,
+  restaurant_country: payload.restaurant_country || null,
+
+  google_reviews: payload.google_reviews || null,
+  google_rating: payload.google_rating || null,
+
+  setup_fee: modo === "setup",
+  discount_percentage: payload.discount_percentage || 0
 },
   success_url: "https://mesasllenas.com/gracias.html",
   cancel_url: "https://mesasllenas.com/pago-cancelado.html"
