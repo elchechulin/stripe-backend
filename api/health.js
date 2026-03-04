@@ -110,20 +110,39 @@ if (type === "sale_detail") {
 
     if (sale.stripe_subscription_id) {
 
-      const subscription = await stripe.subscriptions.retrieve(
-        sale.stripe_subscription_id
-      );
+  const subscription = await stripe.subscriptions.retrieve(
+    sale.stripe_subscription_id
+  );
 
-      stripeData.subscription = {
-        id: subscription.id,
-        status: subscription.status,
-        current_period_start: subscription.current_period_start,
-        current_period_end: subscription.current_period_end,
-        cancel_at: subscription.cancel_at,
-        cancel_at_period_end: subscription.cancel_at_period_end
-      };
+  // ===============================
+  // FACTURAS STRIPE
+  // ===============================
 
-    }
+  const invoices = await stripe.invoices.list({
+    subscription: sale.stripe_subscription_id,
+    limit: 20
+  });
+
+  stripeData.invoices = invoices.data.map(inv => ({
+    id: inv.id,
+    number: inv.number,
+    amount_paid: inv.amount_paid,
+    status: inv.status,
+    created: inv.created,
+    hosted_invoice_url: inv.hosted_invoice_url,
+    invoice_pdf: inv.invoice_pdf
+  }));
+
+  stripeData.subscription = {
+    id: subscription.id,
+    status: subscription.status,
+    current_period_start: subscription.current_period_start,
+    current_period_end: subscription.current_period_end,
+    cancel_at: subscription.cancel_at,
+    cancel_at_period_end: subscription.cancel_at_period_end
+  };
+
+}
 
     if (sale.stripe_payment_intent_id) {
 
