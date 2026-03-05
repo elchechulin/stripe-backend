@@ -337,6 +337,8 @@ const salesResult = await sql(salesQuery);
 // DISTRIBUCIÓN POR TIPO DE SERVICIO
 // ===============================
 
+    let serviceDistribution = [];
+
 const serviceDistributionQuery = `
   SELECT
     service_type,
@@ -502,8 +504,6 @@ let comparisonData = null;
 // ===============================
 // 📊 DISTRIBUCIÓN POR SERVICIO
 // ===============================
-
-let serviceDistribution = [];
 
 if (
   view === "closers" &&
