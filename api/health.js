@@ -334,6 +334,38 @@ kpisData.margin_percentage = Number(margin.toFixed(1));
 const salesResult = await sql(salesQuery);
 
 // ===============================
+// 📈 FORECAST MENSUAL (PROYECCIÓN)
+// ===============================
+
+const now = new Date();
+
+const currentDay = now.getDate();
+
+const daysInMonth = new Date(
+  now.getFullYear(),
+  now.getMonth() + 1,
+  0
+).getDate();
+
+const revenueCurrentMonth = Number(kpisData.total_revenue || 0);
+const salesCurrentMonth = Number(kpisData.total_sales || 0);
+
+const dailyRevenueAvg =
+  currentDay > 0 ? revenueCurrentMonth / currentDay : 0;
+
+const dailySalesAvg =
+  currentDay > 0 ? salesCurrentMonth / currentDay : 0;
+
+const projectedRevenue = dailyRevenueAvg * daysInMonth;
+const projectedSales = dailySalesAvg * daysInMonth;
+
+const forecastData = {
+  projected_revenue: Number(projectedRevenue.toFixed(2)),
+  projected_sales: Math.round(projectedSales),
+  daily_average: Number(dailyRevenueAvg.toFixed(2))
+};
+
+// ===============================
 // DISTRIBUCIÓN POR TIPO DE SERVICIO
 // ===============================
 
@@ -810,6 +842,7 @@ ytdData = {
     avg_ticket: 0,
     new_sales_current_month: 0
   },
+  forecast: forecastData,
   sales: salesResult || [],
   closer_kpis: closerKpis,
   monthly_ranking: monthlyRanking,
@@ -818,7 +851,6 @@ ytdData = {
   annual_monthly_breakdown: annualMonthlyBreakdown,
   ytd: ytdData,
   comparison: comparisonData,
-
   service_distribution: serviceDistribution
 });
 
