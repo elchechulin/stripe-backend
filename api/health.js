@@ -307,7 +307,29 @@ kpisData.growth_percentage = Number(growth_percentage.toFixed(1));
 const revenue = Number(kpisData.total_revenue || 0);
 const commissions = Number(kpisData.total_commissions || 0);
 
+// ===============================
+// KPI BENEFICIO BRUTO
+// ===============================
+
 kpisData.gross_profit = Number((revenue - commissions).toFixed(2));
+
+// ===============================
+// KPI MRR (Monthly Recurring Revenue)
+// ===============================
+
+kpisData.mrr = revenue;
+
+// ===============================
+// KPI MARGEN %
+// ===============================
+
+let margin = 0;
+
+if (revenue > 0) {
+  margin = (kpisData.gross_profit / revenue) * 100;
+}
+
+kpisData.margin_percentage = Number(margin.toFixed(1));
 
 const salesResult = await sql(salesQuery);
     
@@ -1005,4 +1027,4 @@ if (event.type === "charge.refunded") {
   }
 
   return res.status(405).json({ error: "Método no permitido" });
-}
+  }
