@@ -332,6 +332,29 @@ if (revenue > 0) {
 kpisData.margin_percentage = Number(margin.toFixed(1));
 
 const salesResult = await sql(salesQuery);
+
+// ===============================
+// DISTRIBUCIÓN POR TIPO DE SERVICIO
+// ===============================
+
+const serviceDistributionQuery = `
+  SELECT
+    service_type,
+    COUNT(*) AS total_sales,
+    COALESCE(SUM(monthly_price - COALESCE(refund_amount,0)),0) AS total_revenue,
+    COALESCE(
+      SUM(monthly_price - COALESCE(refund_amount,0)) /
+      NULLIF(SUM(SUM(monthly_price - COALESCE(refund_amount,0))) OVER (),0) * 100
+    ,0) AS revenue_percentage
+  FROM sales_history sh
+  LEFT JOIN users u ON sh.closer_id = u.id
+  ${where}
+  GROUP BY service_type
+`;
+
+const serviceDistributionResult = await sql(serviceDistributionQuery);
+
+serviceDistribution = serviceDistributionResult || [];
     
     // ===============================
 // KPIs INDIVIDUALES POR CLOSER
@@ -475,6 +498,12 @@ let ytdData = null;
 // ===============================
 
 let comparisonData = null;
+
+// ===============================
+// 📊 DISTRIBUCIÓN POR SERVICIO
+// ===============================
+
+let serviceDistribution = [];
 
 if (
   view === "closers" &&
@@ -789,6 +818,8 @@ ytdData = {
   annual_monthly_breakdown: annualMonthlyBreakdown,
   ytd: ytdData,
   comparison: comparisonData,
+
+  service_distribution: serviceDistribution
 });
 
   } catch (err) {
@@ -1027,4 +1058,4 @@ if (event.type === "charge.refunded") {
   }
 
   return res.status(405).json({ error: "Método no permitido" });
-  }
+}
