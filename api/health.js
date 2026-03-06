@@ -834,6 +834,108 @@ ytdData = {
 };
 }
 
+// ===============================
+// 🚨 ALERTAS ESTRATÉGICAS
+// ===============================
+
+let alerts = [];
+
+// 1️⃣ Caída fuerte de ventas
+if (kpisData.new_sales_previous_month > 0) {
+
+  const drop =
+    ((kpisData.new_sales_current_month - kpisData.new_sales_previous_month)
+    / kpisData.new_sales_previous_month) * 100;
+
+  if (drop < -20) {
+
+    alerts.push({
+      type: "sales_drop",
+      message: `Ventas -${Math.abs(drop.toFixed(1))}% vs mes anterior`
+    });
+
+  }
+
+}
+
+// 2️⃣ Cancelaciones últimos 7 días
+
+const cancellations7dQuery = `
+  SELECT COUNT(*) AS total
+  FROM sales_history
+  WHERE
+    subscription_status = 'canceled'
+    AND created_at >= NOW() - INTERVAL '7 days'
+`;
+
+const cancellations7d = await sql(cancellations7dQuery);
+
+if (Number(cancellations7d?.[0]?.total || 0) > 0) {
+
+  alerts.push({
+    type: "recent_cancellations",
+    message: `${cancellations7d[0].total} cancelaciones últimos 7 días`
+  });
+
+}
+
+// 3️⃣ Cancelaciones programadas
+
+const cancelSoonQuery = `
+  SELECT COUNT(*) AS total
+  FROM sales_history
+  WHERE
+    subscription_status = 'active'
+    AND stripe_subscription_id IS NOT NULL
+`;
+
+const cancelSoon = await sql(cancelSoonQuery);
+
+if (Number(cancelSoon?.[0]?.total || 0) > 0) {
+
+  alerts.push({
+    type: "scheduled_cancellations",
+    message: `${cancelSoon[0].total} clientes podrían cancelar`
+  });
+
+}
+
+// 4️⃣ Closers sin ventas recientes
+
+const inactiveClosersQuery = `
+  SELECT
+    u.username,
+    MAX(sh.created_at) AS last_sale
+  FROM users u
+  LEFT JOIN sales_history sh
+    ON sh.closer_id = u.id
+  WHERE
+    u.is_active = true
+    AND u.deleted_at IS NULL
+  GROUP BY u.username
+`;
+
+const inactiveClosers = await sql(inactiveClosersQuery);
+
+inactiveClosers.forEach(c => {
+
+  if (!c.last_sale) return;
+
+  const lastSaleDate = new Date(c.last_sale);
+  const days =
+    Math.floor((Date.now() - lastSaleDate) / (1000 * 60 * 60 * 24));
+
+  if (days >= 14) {
+
+    alerts.push({
+      type: "inactive_closer",
+      message: `Closer ${c.username} lleva ${days} días sin vender`
+    });
+
+  }
+
+});
+
     return res.status(200).json({
   kpis: kpisData || {
     total_sales: 0,
@@ -851,7 +953,8 @@ ytdData = {
   annual_monthly_breakdown: annualMonthlyBreakdown,
   ytd: ytdData,
   comparison: comparisonData,
-  service_distribution: serviceDistribution
+  service_distribution: serviceDistribution,
+alerts: alerts
 });
 
   } catch (err) {
